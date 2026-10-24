@@ -7,3 +7,5 @@
 *.pst
 *.ost
 *.msg
+# Local working notes (plans) stay off GitHub.
+/docs/*-plan.md
