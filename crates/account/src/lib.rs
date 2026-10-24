@@ -106,10 +106,6 @@ impl MsBackend {
     }
 }
 
-/// Rslook's own application (client) ID in the Microsoft identity platform. Empty until the
-/// app registration exists; then people must enter their own ID in Account Settings.
-pub const BUILTIN_CLIENT_ID: &str = "";
-
 /// Microsoft's IMAP and SMTP servers for the IMAP backend.
 pub const MS_IMAP: (&str, u16) = ("outlook.office365.com", 993);
 pub const MS_SMTP: (&str, u16) = ("smtp.office365.com", 587);
@@ -119,7 +115,8 @@ pub const MS_SMTP: (&str, u16) = ("smtp.office365.com", 587);
 pub struct MicrosoftSettings {
     #[serde(default)]
     pub backend: MsBackend,
-    /// Application (client) ID; empty uses [`BUILTIN_CLIENT_ID`].
+    /// Application (client) ID of the user's own app registration in Microsoft Entra. Rslook
+    /// ships none: each person (or organisation) registers their own.
     #[serde(default)]
     pub client_id: String,
     /// Directory (tenant); empty is `common` (work, school and personal accounts).
@@ -135,8 +132,7 @@ pub struct MicrosoftSettings {
 
 impl MicrosoftSettings {
     pub fn client_id(&self) -> &str {
-        let own = self.client_id.trim();
-        if own.is_empty() { BUILTIN_CLIENT_ID } else { own }
+        self.client_id.trim()
     }
 
     pub fn tenant(&self) -> &str {
@@ -372,9 +368,7 @@ mod tests {
     #[test]
     fn microsoft_accounts_need_a_client_id_and_old_files_still_load() {
         let mut a = Account { kind: AccountKind::Microsoft, ..account() };
-        if BUILTIN_CLIENT_ID.is_empty() {
-            assert!(a.validate().is_err(), "no built-in ID yet, so one must be entered");
-        }
+        assert!(a.validate().is_err(), "Rslook has no built-in ID, so one must be entered");
         a.microsoft.client_id = "00000000-1111-2222-3333-444444444444".into();
         assert!(a.validate().is_ok());
         assert_eq!(a.microsoft.tenant(), "common");

@@ -5,7 +5,7 @@ use crate::MailApp;
 use crate::theme::LIGHT as T;
 use egui::{RichText, TextEdit, Ui};
 use rslook_engine::AccountDraft;
-use rslook_engine::account::{AccountKind, BUILTIN_CLIENT_ID, MsBackend, Security};
+use rslook_engine::account::{AccountKind, MsBackend, Security};
 use serde_json::json;
 
 const FIELD_W: f32 = 300.0;
@@ -73,7 +73,6 @@ fn microsoft(ui: &mut Ui, d: &mut AccountDraft) -> Option<&'static str> {
         .color(T.text_dim),
     );
     ui.add_space(10.0);
-    let id_hint = if BUILTIN_CLIENT_ID.is_empty() { "Required: the ID from your Entra app registration" } else { "Leave blank to use Rslook's own" };
     egui::Grid::new("ms_fields").num_columns(2).spacing([12.0, 6.0]).show(ui, |ui| {
         row(ui, "Your name", &mut d.name, "Shown to people you write to", false);
         ui.label("Connect with");
@@ -83,8 +82,13 @@ fn microsoft(ui: &mut Ui, d: &mut AccountDraft) -> Option<&'static str> {
             }
         });
         ui.end_row();
-        row(ui, "Application (client) ID", &mut d.client_id, id_hint, false);
+        row(ui, "Application (client) ID", &mut d.client_id, "From your own app registration in Microsoft Entra", false);
     });
+    ui.label(
+        RichText::new("Rslook has no built-in app ID: register it once in Microsoft Entra (see the README) and paste the ID here.")
+            .size(12.0)
+            .color(T.text_dim),
+    );
     ui.add_space(8.0);
     let mut action = None;
     if d.signing_in {

@@ -42,14 +42,28 @@ cargo run -p rslook-pst --features fixtures --example make_sample -- /tmp   # sy
   you sign in on Microsoft's own page in your web browser (OAuth 2.0 with PKCE); Rslook never
   sees the password and keeps only the sign-in token, in the OS keychain. Mail goes through
   Microsoft Graph, or through IMAP and SMTP with OAuth (XOAUTH2) if you pick that instead.
-  Sign-in needs an application (client) ID registered in Microsoft Entra; until Rslook ships its
-  own, enter yours in the account dialog. Work or school tenants may need their admin to allow
-  the app.
+  Rslook ships no app ID of its own: you register it once in Microsoft Entra (below) and paste
+  the application (client) ID into the account dialog. Work or school tenants may need their
+  admin to allow the app.
 - Send / Receive tab: Send/Receive All Folders (F9), Update Folder (Shift+F9), Send All, Work
   Offline. Sent mail waits in the Outbox, goes out over SMTP and a copy is saved to Sent Items.
   Folders, flags (read, flagged), moves and deletes sync both ways.
 - Offline cache: synced folders and messages stay readable with no connection; changes made
   offline are queued, survive a restart and replay on the next Send/Receive.
+
+## Registering Rslook in Microsoft Entra
+
+Microsoft sign-in needs an app registration that you own. It is free and takes a few minutes.
+
+1. Sign in at <https://entra.microsoft.com> (a personal Microsoft account works).
+2. Go to App registrations and choose New registration.
+3. Name it (for example Rslook). Supported account types: "Accounts in any organizational
+   directory and personal Microsoft accounts" (or only your organisation, if that is all you use).
+4. Redirect URI: platform "Public client/native (mobile & desktop)", value `http://localhost`.
+5. Register, then copy the Application (client) ID from the Overview page into Rslook's account
+   dialog. No client secret is needed; the sign-in asks for mail permissions when you first use it.
+
+The ID is kept in your own settings file, not in Rslook's code.
 
 ## Roadmap
 

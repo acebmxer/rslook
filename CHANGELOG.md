@@ -12,8 +12,9 @@ All notable changes to Rslook are listed here, newest first. The format follows
   the sign-in token, in the OS keychain (it never sees the password). Send/Receive then works
   through Microsoft Graph, or through IMAP and SMTP with OAuth sign-in if you choose that in the
   dialog: folders, mail, read and flagged state, moves, deletes and sending, with the same
-  offline cache and queue as IMAP accounts. Signing in needs an application (client) ID
-  registered in Microsoft Entra, entered in the account dialog. When Microsoft stops accepting
+  offline cache and queue as IMAP accounts. Rslook ships no app ID of its own: signing in needs
+  the application (client) ID of your own app registration in Microsoft Entra (steps in the
+  README), entered in the account dialog. When Microsoft stops accepting
   the saved sign-in, Send/Receive says so and Account Settings lets you sign in again.
 - **Import/Export: Outlook data files (.pst) and saved messages (.msg).** File ▸ Import/Export
   takes the path of a `.pst`, `.msg` or `.eml` file (they can also be given on the command

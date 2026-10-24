@@ -80,10 +80,8 @@ fn sign_in_needs_a_valid_client_id_and_switching_backend_needs_a_new_sign_in() {
     let (mut s, _) = session();
     run(&mut s, "account.add", json!({}));
     run(&mut s, "account.set", json!({"kind": "microsoft", "client_id": ""}));
-    if rslook_account::BUILTIN_CLIENT_ID.is_empty() {
-        assert!(s.run("account.sign_in", &json!({})).is_err());
-        assert!(s.account_dialog.as_ref().unwrap().error.as_deref().unwrap().contains("client) ID"));
-    }
+    assert!(s.run("account.sign_in", &json!({})).is_err());
+    assert!(s.account_dialog.as_ref().unwrap().error.as_deref().unwrap().contains("client) ID"));
     run(&mut s, "account.set", json!({"client_id": "bad id/with slash"}));
     assert!(s.run("account.sign_in", &json!({})).is_err());
     run(&mut s, "account.set", json!({"client_id": "abc"}));
