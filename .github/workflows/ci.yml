@@ -43,3 +43,17 @@ jobs:
 
       - name: cargo test
         run: cargo test
+
+  mail-servers:
+    # The ignored end-to-end tests (crates/sync/tests/mail_servers.rs): Send/Receive with password
+    # and XOAUTH2 login against throwaway GreenMail, Dovecot and Mailpit containers.
+    name: Send/Receive against test mail servers
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install podman networking
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends podman netavark aardvark-dns iptables
+
+      - name: scripts/mail-test.sh
+        run: scripts/mail-test.sh

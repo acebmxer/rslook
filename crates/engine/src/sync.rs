@@ -9,11 +9,13 @@
 
 use crate::{EngineError, Session};
 use chrono::{DateTime, Utc};
-use rslook_account::Account;
+use rslook_account::{Account, AccountKind, MicrosoftSettings, MsBackend};
 use rslook_mail::{Address, FolderId, FolderKind, MessageId, NewMessage, RemoteRef, Store};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 pub type OpId = u64;
 
@@ -71,6 +73,8 @@ pub struct OutgoingMessage {
 pub struct KnownMailbox {
     pub uid_validity: u32,
     pub uids: HashSet<u32>,
+    /// Server ids (Graph) the cache knows, with the number each was given.
+    pub keys: HashMap<String, u32>,
 }
 
 /// Everything a worker needs for one Send/Receive, with no reference back to the session.
@@ -78,6 +82,7 @@ pub struct KnownMailbox {
 pub struct Job {
     pub id: u64,
     pub account: Account,
+    /// The keychain secret: the password, or for a Microsoft account the OAuth refresh token.
     pub password: String,
     pub ops: Vec<QueuedOp>,
     pub outbox: Vec<OutgoingMessage>,
@@ -90,8 +95,11 @@ pub struct Job {
 /// A server mailbox as listed by the worker.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RemoteFolder {
-    /// Raw IMAP name (used in commands).
+    /// Raw IMAP name (used in commands), or the Graph folder id.
     pub name: String,
+    /// The parent folder's `name`, for servers that say it directly (Graph); IMAP folders
+    /// derive it from the delimiter.
+    pub parent: Option<String>,
     /// Decoded last path component, for display.
     pub display: String,
     pub delimiter: Option<String>,
@@ -105,6 +113,8 @@ pub struct RemoteFolder {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RemoteMessage {
     pub uid: u32,
+    /// The server's own id, for servers with string ids (Graph).
+    pub key: Option<String>,
     pub read: bool,
     pub flagged: bool,
     /// Parsed content, present for messages the cache did not know.
@@ -143,6 +153,8 @@ pub struct JobResult {
     pub job: u64,
     /// `Err` when the job could not run at all (no connection, login refused).
     pub outcome: Result<Report, String>,
+    /// A new keychain secret to keep (Microsoft may hand out a new refresh token on each use).
+    pub new_secret: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -185,11 +197,17 @@ impl Paths {
         self.config.join("accounts.json")
     }
 
-    /// One cache file per account, named after its address (unsafe characters replaced).
+    /// One cache file per account, named after its address (unsafe characters replaced). A
+    /// Microsoft account gets its own file per backend: Graph and IMAP name messages differently.
     pub fn cache_file(&self, account: &Account) -> PathBuf {
         let name: String =
             account.key().chars().take(120).map(|c| if c.is_ascii_alphanumeric() || matches!(c, '.' | '@' | '-' | '_') { c } else { '_' }).collect();
-        self.data.join(format!("cache-{name}.json"))
+        let prefix = match (account.kind, account.microsoft.backend) {
+            (AccountKind::Imap, _) => "cache",
+            (AccountKind::Microsoft, MsBackend::Graph) => "cache-graph",
+            (AccountKind::Microsoft, MsBackend::Imap) => "cache-ms-imap",
+        };
+        self.data.join(format!("{prefix}-{name}.json"))
     }
 }
 
@@ -236,6 +254,36 @@ fn creatable(kind: FolderKind) -> bool {
     matches!(kind, FolderKind::Sent | FolderKind::Drafts | FolderKind::Deleted | FolderKind::Archive | FolderKind::Junk)
 }
 
+/// A Microsoft sign-in for the front end to run (browser + loopback redirect, see `rslook-sync`).
+#[derive(Debug, Clone)]
+pub struct SignInJob {
+    pub id: u64,
+    pub settings: MicrosoftSettings,
+    /// Set when the user cancels; the sign-in stops waiting for the browser.
+    pub cancel: Arc<AtomicBool>,
+}
+
+/// Who signed in, and the refresh token to keep in the keychain.
+#[derive(Clone, PartialEq, Eq)]
+pub struct SignedIn {
+    pub name: String,
+    pub email: String,
+    pub refresh_token: String,
+}
+
+impl std::fmt::Debug for SignedIn {
+    // Never print the token.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SignedIn").field("name", &self.name).field("email", &self.email).finish_non_exhaustive()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct SignInResult {
+    pub id: u64,
+    pub outcome: Result<SignedIn, String>,
+}
+
 impl Session {
     pub fn account(&self) -> Option<&Account> {
         self.account.as_ref()
@@ -259,6 +307,74 @@ impl Session {
 
     pub fn has_requests(&self) -> bool {
         !self.requests.is_empty()
+    }
+
+    /// Starts a Microsoft sign-in for the open account dialog.
+    pub(crate) fn start_sign_in(&mut self) -> Result<(), String> {
+        let Some(d) = self.account_dialog.as_ref() else { return Err("The account dialog is closed.".into()) };
+        let (backend, client_id) = (d.ms_backend, d.client_id.trim().to_string());
+        let settings = MicrosoftSettings { backend, client_id, ..self.ms_overrides() };
+        settings.validate().map_err(|e| e.to_string())?;
+        self.next_sign_in_id = self.next_sign_in_id.saturating_add(1);
+        let cancel = Arc::new(AtomicBool::new(false));
+        if let Some(d) = self.account_dialog.as_mut() {
+            d.signing_in = true;
+            d.error = None;
+        }
+        self.sign_in = Some((self.next_sign_in_id, cancel.clone()));
+        self.sign_in_requests.push(SignInJob { id: self.next_sign_in_id, settings, cancel });
+        Ok(())
+    }
+
+    /// Test endpoints of the current Microsoft account, kept when its dialog signs in again.
+    fn ms_overrides(&self) -> MicrosoftSettings {
+        match &self.account {
+            Some(a) if a.kind == AccountKind::Microsoft => MicrosoftSettings {
+                auth_base: a.microsoft.auth_base.clone(),
+                graph_base: a.microsoft.graph_base.clone(),
+                tenant: a.microsoft.tenant.clone(),
+                ..Default::default()
+            },
+            _ => MicrosoftSettings::default(),
+        }
+    }
+
+    pub(crate) fn cancel_sign_in(&mut self) {
+        if let Some((_, cancel)) = self.sign_in.take() {
+            cancel.store(true, Ordering::Relaxed);
+        }
+        self.sign_in_requests.clear();
+        if let Some(d) = self.account_dialog.as_mut() {
+            d.signing_in = false;
+        }
+    }
+
+    /// The next sign-in for the front end to run.
+    pub fn next_sign_in(&mut self) -> Option<SignInJob> {
+        self.sign_in_requests.pop()
+    }
+
+    /// Takes a finished sign-in into the account dialog (stale or cancelled ones are dropped).
+    pub fn apply_sign_in(&mut self, r: SignInResult) {
+        if !self.sign_in.as_ref().is_some_and(|(id, _)| *id == r.id) {
+            return;
+        }
+        self.sign_in = None;
+        let Some(d) = self.account_dialog.as_mut() else { return };
+        d.signing_in = false;
+        match r.outcome {
+            Ok(who) => {
+                if d.name.trim().is_empty() {
+                    d.name = who.name.clone();
+                }
+                d.email = who.email.clone();
+                d.username = who.email.clone();
+                d.oauth_token = who.refresh_token;
+                d.signed_in = Some((who.name, who.email));
+                d.error = None;
+            }
+            Err(e) => d.error = Some(e),
+        }
     }
 
     fn push_op(&mut self, target: RemoteRef, kind: OpKind) {
@@ -364,6 +480,10 @@ impl Session {
         let requests = std::mem::take(&mut self.requests);
         let password = match self.secrets.get(&account.key()) {
             Ok(p) => p,
+            Err(rslook_account::AccountError::NoPassword(_)) if account.kind == AccountKind::Microsoft => {
+                self.sync_state = SyncState::Error("Not signed in to Microsoft. Open Account Settings and sign in again.".into());
+                return None;
+            }
             Err(e) => {
                 self.sync_state = SyncState::Error(e.to_string());
                 return None;
@@ -412,9 +532,12 @@ impl Session {
         }
         let mut known: HashMap<String, KnownMailbox> = HashMap::new();
         for r in self.store.messages().iter().filter_map(|m| m.remote.as_ref()).filter(|r| r.uid != 0) {
-            let k = known.entry(r.mailbox.clone()).or_insert_with(|| KnownMailbox { uid_validity: r.uid_validity, uids: HashSet::new() });
+            let k = known.entry(r.mailbox.clone()).or_insert_with(|| KnownMailbox { uid_validity: r.uid_validity, ..Default::default() });
             if k.uid_validity == r.uid_validity {
                 k.uids.insert(r.uid);
+                if let Some(key) = &r.key {
+                    k.keys.insert(key.clone(), r.uid);
+                }
             }
         }
         self.next_job_id = self.next_job_id.saturating_add(1);
@@ -432,6 +555,11 @@ impl Session {
     pub fn apply_result(&mut self, result: JobResult) {
         if !matches!(&self.sync_state, SyncState::Busy { job, .. } if *job == result.job) {
             return;
+        }
+        if let (Some(secret), Some(account)) = (&result.new_secret, &self.account)
+            && let Err(e) = self.secrets.set(&account.key(), secret)
+        {
+            log::warn!("could not keep the new sign-in token: {e}");
         }
         let report = match result.outcome {
             Ok(r) => r,
@@ -484,7 +612,7 @@ impl Session {
                 && let (Some(mailbox), Ok(m)) = (&item.appended_to, self.store.message_mut(item.id))
             {
                 // On the server now; the next pull of that mailbox swaps in the server copy.
-                m.remote = Some(RemoteRef { mailbox: mailbox.clone(), uid_validity: 0, uid: 0 });
+                m.remote = Some(RemoteRef { mailbox: mailbox.clone(), uid_validity: 0, uid: 0, key: None });
             }
         }
     }
@@ -501,8 +629,23 @@ impl Session {
                 f.remote = None;
             }
         }
+        // Parents before children: by depth when the server names parents (Graph), else by name
+        // length (an IMAP child's name contains its parent's).
+        let parent_of: HashMap<&str, &str> = folders.iter().filter_map(|f| f.parent.as_deref().map(|p| (f.name.as_str(), p))).collect();
+        let depth = |name: &str| {
+            let mut d = 0usize;
+            let mut cur = name;
+            while let Some(p) = parent_of.get(cur) {
+                d = d.saturating_add(1);
+                cur = p;
+                if d > folders.len() {
+                    break; // a cycle: treat as deep, never loop
+                }
+            }
+            d
+        };
         let mut ordered: Vec<&RemoteFolder> = folders.iter().collect();
-        ordered.sort_by_key(|f| (!f.special_use, f.name.len()));
+        ordered.sort_by_key(|f| (!f.special_use, depth(&f.name), f.name.len()));
         for rf in ordered {
             if self.store.folder_by_remote(&rf.name).is_some() {
                 continue;
@@ -515,12 +658,15 @@ impl Session {
                 }
                 continue;
             }
-            let parent = rf
-                .delimiter
-                .as_deref()
-                .filter(|d| !d.is_empty())
-                .and_then(|d| rf.name.rsplit_once(d))
-                .and_then(|(p, _)| self.store.folder_by_remote(p));
+            let parent = match &rf.parent {
+                Some(p) => self.store.folder_by_remote(p),
+                None => rf
+                    .delimiter
+                    .as_deref()
+                    .filter(|d| !d.is_empty())
+                    .and_then(|d| rf.name.rsplit_once(d))
+                    .and_then(|(p, _)| self.store.folder_by_remote(p)),
+            };
             let id = self.store.add_folder(&rf.display, FolderKind::Custom, parent);
             if let Ok(f) = self.store.folder_mut(id) {
                 f.remote = Some(rf.name.clone());
@@ -570,7 +716,7 @@ impl Session {
                 let mut nm = content.clone();
                 nm.read = rm.read;
                 nm.flagged = rm.flagged;
-                nm.remote = Some(RemoteRef { mailbox: c.mailbox.clone(), uid_validity: c.uid_validity, uid: rm.uid });
+                nm.remote = Some(RemoteRef { mailbox: c.mailbox.clone(), uid_validity: c.uid_validity, uid: rm.uid, key: rm.key.clone() });
                 let _ = self.store.add_message(folder, nm);
             }
         }

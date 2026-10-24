@@ -6,6 +6,8 @@
 pub mod catalog;
 pub mod cmd;
 pub mod sample;
+#[cfg(test)]
+mod signin_tests;
 pub mod sync;
 #[cfg(test)]
 mod sync_tests;
@@ -83,6 +85,16 @@ pub struct AccountDraft {
     pub smtp_host: String,
     pub smtp_port: String,
     pub smtp_security: rslook_account::Security,
+    pub kind: rslook_account::AccountKind,
+    /// Microsoft accounts: Graph or IMAP, and an own application (client) ID (empty = Rslook's).
+    pub ms_backend: rslook_account::MsBackend,
+    pub client_id: String,
+    /// Microsoft accounts: who signed in (name, address). The refresh token stays in memory in
+    /// `oauth_token` and goes straight to the keychain on save.
+    pub signed_in: Option<(String, String)>,
+    pub oauth_token: String,
+    /// Waiting for the browser sign-in to finish.
+    pub signing_in: bool,
     /// Editing the existing account (Account Settings) rather than adding one.
     pub editing: bool,
     /// Why the last save was refused, shown in the dialog.
@@ -131,6 +143,10 @@ pub struct Session {
     next_op: u64,
     requests: Vec<SyncRequest>,
     next_job_id: u64,
+    /// The Microsoft sign-in in progress (id, cancel flag) and the ones not yet handed out.
+    sign_in: Option<(u64, Arc<std::sync::atomic::AtomicBool>)>,
+    sign_in_requests: Vec<sync::SignInJob>,
+    next_sign_in_id: u64,
     undo: Vec<Store>,
     redo: Vec<Store>,
 }
@@ -161,6 +177,9 @@ impl Session {
             next_op: 1,
             requests: Vec::new(),
             next_job_id: 0,
+            sign_in: None,
+            sign_in_requests: Vec::new(),
+            next_sign_in_id: 0,
             undo: Vec::new(),
             redo: Vec::new(),
         };

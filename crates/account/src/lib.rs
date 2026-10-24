@@ -68,6 +68,96 @@ pub struct Server {
     pub security: Security,
 }
 
+/// What kind of account this is.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum AccountKind {
+    /// Any IMAP + SMTP server, signed in with a password.
+    #[default]
+    Imap,
+    /// Microsoft 365 or Outlook.com, signed in through Microsoft (OAuth 2.0); the keychain holds
+    /// the refresh token instead of a password.
+    Microsoft,
+}
+
+/// How a Microsoft account reaches its mailbox.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum MsBackend {
+    /// Microsoft Graph (the default).
+    #[default]
+    Graph,
+    /// IMAP + SMTP with OAuth (XOAUTH2), for tenants or accounts where Graph is not wanted.
+    Imap,
+}
+
+impl MsBackend {
+    pub fn id(self) -> &'static str {
+        match self {
+            MsBackend::Graph => "graph",
+            MsBackend::Imap => "imap",
+        }
+    }
+
+    pub fn parse(s: &str) -> Option<Self> {
+        match s.to_ascii_lowercase().as_str() {
+            "graph" => Some(MsBackend::Graph),
+            "imap" => Some(MsBackend::Imap),
+            _ => None,
+        }
+    }
+}
+
+/// Rslook's own application (client) ID in the Microsoft identity platform. Empty until the
+/// app registration exists; then people must enter their own ID in Account Settings.
+pub const BUILTIN_CLIENT_ID: &str = "";
+
+/// Microsoft's IMAP and SMTP servers for the IMAP backend.
+pub const MS_IMAP: (&str, u16) = ("outlook.office365.com", 993);
+pub const MS_SMTP: (&str, u16) = ("smtp.office365.com", 587);
+
+/// Settings that only Microsoft accounts use.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct MicrosoftSettings {
+    #[serde(default)]
+    pub backend: MsBackend,
+    /// Application (client) ID; empty uses [`BUILTIN_CLIENT_ID`].
+    #[serde(default)]
+    pub client_id: String,
+    /// Directory (tenant); empty is `common` (work, school and personal accounts).
+    #[serde(default)]
+    pub tenant: String,
+    /// Test override for the sign-in server (`<base>/authorize`, `<base>/token`). Empty in real use.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub auth_base: String,
+    /// Test override for the Graph base URL. Empty in real use.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub graph_base: String,
+}
+
+impl MicrosoftSettings {
+    pub fn client_id(&self) -> &str {
+        let own = self.client_id.trim();
+        if own.is_empty() { BUILTIN_CLIENT_ID } else { own }
+    }
+
+    pub fn tenant(&self) -> &str {
+        let t = self.tenant.trim();
+        if t.is_empty() { "common" } else { t }
+    }
+
+    /// The client ID and tenant go into sign-in URLs: present, short, and URL-safe.
+    pub fn validate(&self) -> Result<(), AccountError> {
+        let id = self.client_id();
+        if id.is_empty() {
+            return Err(AccountError::Invalid("Enter the application (client) ID registered for Rslook in Microsoft Entra.".into()));
+        }
+        let ok = |s: &str| s.len() <= 128 && s.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '.' | '_'));
+        if !ok(id) || !ok(self.tenant()) {
+            return Err(AccountError::Invalid("The application (client) ID or tenant has characters that can't be in one.".into()));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Account {
     /// Display name used in From.
@@ -77,6 +167,28 @@ pub struct Account {
     pub username: String,
     pub imap: Server,
     pub smtp: Server,
+    #[serde(default)]
+    pub kind: AccountKind,
+    #[serde(default)]
+    pub microsoft: MicrosoftSettings,
+}
+
+/// How a worker logs in to IMAP or SMTP.
+#[derive(Clone, PartialEq, Eq)]
+pub enum Login {
+    Password(String),
+    /// An OAuth 2.0 access token, sent with SASL XOAUTH2.
+    Bearer(String),
+}
+
+impl std::fmt::Debug for Login {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // Never print the secret.
+        f.write_str(match self {
+            Login::Password(_) => "Login::Password(..)",
+            Login::Bearer(_) => "Login::Bearer(..)",
+        })
+    }
 }
 
 /// Longest host name (RFC 1035) and the caps we put on the other fields.
@@ -109,6 +221,9 @@ impl Account {
         }
         if self.username.trim().is_empty() || self.username.len() > MAX_FIELD || self.username.contains(['\r', '\n']) {
             return bad("Enter the user name for the mail server.");
+        }
+        if self.kind == AccountKind::Microsoft {
+            self.microsoft.validate()?;
         }
         for (what, s) in [("incoming (IMAP)", &self.imap), ("outgoing (SMTP)", &self.smtp)] {
             if !valid_host(s.host.trim()) {
@@ -250,7 +365,26 @@ mod tests {
             username: "test".into(),
             imap: Server { host: "imap.example.org".into(), port: 993, security: Security::Tls },
             smtp: Server { host: "smtp.example.org".into(), port: 587, security: Security::StartTls },
+            ..Default::default()
         }
+    }
+
+    #[test]
+    fn microsoft_accounts_need_a_client_id_and_old_files_still_load() {
+        let mut a = Account { kind: AccountKind::Microsoft, ..account() };
+        if BUILTIN_CLIENT_ID.is_empty() {
+            assert!(a.validate().is_err(), "no built-in ID yet, so one must be entered");
+        }
+        a.microsoft.client_id = "00000000-1111-2222-3333-444444444444".into();
+        assert!(a.validate().is_ok());
+        assert_eq!(a.microsoft.tenant(), "common");
+        a.microsoft.tenant = "x/../y".into();
+        assert!(a.validate().is_err());
+        // Files written before Microsoft accounts existed have no kind or microsoft fields.
+        let old = r#"{"name":"A","email":"a@x.org","username":"a","imap":{"host":"i.x.org","port":993,"security":"Tls"},"smtp":{"host":"s.x.org","port":587,"security":"StartTls"}}"#;
+        let a: Account = serde_json::from_str(old).unwrap();
+        assert_eq!(a.kind, AccountKind::Imap);
+        assert_eq!(format!("{:?}", Login::Bearer("secret-token".into())), "Login::Bearer(..)");
     }
 
     #[test]

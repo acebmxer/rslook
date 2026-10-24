@@ -75,13 +75,20 @@ impl MailApp {
             for r in w.poll() {
                 self.session.apply_result(r);
             }
+            for r in w.poll_sign_ins() {
+                self.session.apply_sign_in(r);
+            }
+            if let Some(job) = self.session.next_sign_in() {
+                w.sign_in(job);
+            }
             if let Some(job) = self.session.next_job()
                 && !w.submit(job)
             {
                 self.session.sync_state = rslook_engine::sync::SyncState::Error("Send/Receive stopped working; restart Rslook.".into());
             }
         }
-        if self.session.busy() {
+        let signing_in = self.session.account_dialog.as_ref().is_some_and(|d| d.signing_in);
+        if self.session.busy() || signing_in {
             ctx.request_repaint_after(Duration::from_millis(250));
         }
         if self.session.dirty && self.last_save.elapsed() >= SAVE_EVERY {

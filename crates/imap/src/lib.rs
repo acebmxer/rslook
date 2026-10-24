@@ -8,7 +8,7 @@ pub mod mutf7;
 
 use async_imap::types::{Fetch, Flag, NameAttribute};
 use futures::TryStreamExt;
-use rslook_account::{Security, Server};
+use rslook_account::{Login, Security, Server};
 use rslook_mail::FolderKind;
 use std::fmt::Debug;
 use std::sync::Arc;
@@ -27,7 +27,7 @@ pub enum ImapError {
     Lost(String),
     #[error("secure connection failed: {0}")]
     Tls(String),
-    #[error("the server refused the user name or password ({0})")]
+    #[error("the server refused the sign-in ({0})")]
     Auth(String),
     #[error("server error: {0}")]
     Protocol(String),
@@ -150,8 +150,25 @@ pub struct Conn {
     uidplus: bool,
 }
 
-/// Connects and logs in.
+/// Connects and logs in with a password.
 pub async fn connect(server: &Server, user: &str, password: &str, opts: &TlsOptions) -> Result<Conn, ImapError> {
+    connect_with(server, user, &Login::Password(password.to_string()), opts).await
+}
+
+/// SASL XOAUTH2 sends its whole response with the command (SASL-IR, RFC 4959, which Microsoft
+/// and Google support and some servers require). A failure comes back as a challenge holding a
+/// JSON error, answered with an empty response so the server ends with NO.
+struct XOAuth2Failure;
+
+impl async_imap::Authenticator for XOAuth2Failure {
+    type Response = String;
+    fn process(&mut self, _challenge: &[u8]) -> String {
+        String::new()
+    }
+}
+
+/// Connects and logs in with a password (LOGIN) or an OAuth access token (AUTHENTICATE XOAUTH2).
+pub async fn connect_with(server: &Server, user: &str, login: &Login, opts: &TlsOptions) -> Result<Conn, ImapError> {
     let host = server.host.trim();
     let addr = format!("{host}:{}", server.port);
     let tcp = match tokio::time::timeout(CONNECT_TIMEOUT, TcpStream::connect((host, server.port))).await {
@@ -179,7 +196,15 @@ pub async fn connect(server: &Server, user: &str, password: &str, opts: &TlsOpti
             c
         }
     };
-    let mut session = match tokio::time::timeout(COMMAND_TIMEOUT, client.login(user, password)).await {
+    let logged_in = match login {
+        Login::Password(password) => tokio::time::timeout(COMMAND_TIMEOUT, client.login(user, password)).await,
+        Login::Bearer(token) => {
+            use base64::Engine as _;
+            let initial = base64::engine::general_purpose::STANDARD.encode(rslook_oauth::xoauth2(user, token));
+            tokio::time::timeout(COMMAND_TIMEOUT, client.authenticate(format!("XOAUTH2 {initial}"), XOAuth2Failure)).await
+        }
+    };
+    let mut session = match logged_in {
         Ok(Ok(s)) => s,
         Ok(Err((e, _))) => return Err(ImapError::Auth(e.to_string())),
         Err(_) => return Err(ImapError::Timeout("login")),

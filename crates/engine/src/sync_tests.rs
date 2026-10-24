@@ -18,6 +18,7 @@ fn account() -> Account {
         username: "test".into(),
         imap: Server { host: "imap.example.test".into(), port: 993, security: Security::Tls },
         smtp: Server { host: "smtp.example.test".into(), port: 587, security: Security::StartTls },
+        ..Default::default()
     }
 }
 
@@ -26,11 +27,11 @@ fn msg(subject: &str) -> NewMessage {
 }
 
 fn rmsg(uid: u32, read: bool, content: Option<&str>) -> RemoteMessage {
-    RemoteMessage { uid, read, flagged: false, content: content.map(msg) }
+    RemoteMessage { uid, key: None, read, flagged: false, content: content.map(msg) }
 }
 
 fn folder(name: &str, kind: Option<FolderKind>, special: bool) -> RemoteFolder {
-    RemoteFolder { name: name.into(), display: name.into(), delimiter: Some("/".into()), kind, special_use: special, selectable: true }
+    RemoteFolder { name: name.into(), parent: None, display: name.into(), delimiter: Some("/".into()), kind, special_use: special, selectable: true }
 }
 
 fn server_folders() -> Vec<RemoteFolder> {
@@ -53,7 +54,7 @@ fn secrets() -> Arc<MemorySecrets> {
 fn sync(s: &mut Session, request: SyncRequest, report: Report) -> Job {
     s.request(request);
     let job = s.next_job().expect("a job");
-    s.apply_result(JobResult { job: job.id, outcome: Ok(report) });
+    s.apply_result(JobResult { job: job.id, outcome: Ok(report), new_secret: None });
     job
 }
 
@@ -232,6 +233,7 @@ fn merge_keeps_local_changes_still_waiting_in_the_queue() {
             }],
             ..Default::default()
         }),
+        new_secret: None,
     });
     assert!(s.store.message(one).unwrap().read);
     assert_eq!(s.queue().len(), 1);
@@ -285,6 +287,7 @@ fn sending_with_an_account_goes_through_the_outbox() {
     s.apply_result(JobResult {
         job: job.id,
         outcome: Ok(Report { sent: vec![SentItem { id, appended_to: Some("Sent".into()) }], ..Default::default() }),
+        new_secret: None,
     });
     assert_eq!(s.store.total_count(outbox), 0);
     assert_eq!(s.store.total_count(sent), 1);
@@ -310,7 +313,11 @@ fn a_failed_send_stays_in_the_outbox() {
     s.request(SyncRequest::SendAll);
     let job = s.next_job().unwrap();
     let id = job.outbox[0].id;
-    s.apply_result(JobResult { job: job.id, outcome: Ok(Report { send_failed: vec![(id, "relay denied".into())], ..Default::default() }) });
+    s.apply_result(JobResult {
+        job: job.id,
+        outcome: Ok(Report { send_failed: vec![(id, "relay denied".into())], ..Default::default() }),
+        new_secret: None,
+    });
     let outbox = s.store.folder_of_kind(FolderKind::Outbox).unwrap();
     assert_eq!(s.store.total_count(outbox), 1);
     assert!(s.status.contains("relay denied"), "{}", s.status);
@@ -323,11 +330,11 @@ fn a_job_that_could_not_connect_keeps_the_queue() {
     run(&mut s, "message.select", json!({"id": one}));
     s.request(SyncRequest::All);
     let job = s.next_job().unwrap();
-    s.apply_result(JobResult { job: job.id, outcome: Err("could not connect".into()) });
+    s.apply_result(JobResult { job: job.id, outcome: Err("could not connect".into()), new_secret: None });
     assert_eq!(s.sync_state, SyncState::Error("could not connect".into()));
     assert_eq!(s.queue().len(), 1);
     // A stale result for another job is ignored.
-    s.apply_result(JobResult { job: 999, outcome: Ok(Report::default()) });
+    s.apply_result(JobResult { job: 999, outcome: Ok(Report::default()), new_secret: None });
     assert_eq!(s.queue().len(), 1);
 }
 
@@ -343,6 +350,7 @@ fn partial_failure_still_records_what_was_sent() {
     s.apply_result(JobResult {
         job: job.id,
         outcome: Ok(Report { sent: vec![SentItem { id, appended_to: None }], error: Some("connection lost".into()), ..Default::default() }),
+        new_secret: None,
     });
     let outbox = s.store.folder_of_kind(FolderKind::Outbox).unwrap();
     assert_eq!(s.store.total_count(outbox), 0, "sent mail must not be sent twice");

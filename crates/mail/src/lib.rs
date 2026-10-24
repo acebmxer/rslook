@@ -79,11 +79,16 @@ pub struct Folder {
 /// Where a message lives on the server: mailbox, UIDVALIDITY and UID (RFC 9051 §2.3.1.1).
 /// A UID of 0 means "on the server, UID not known yet" (e.g. just appended); the next pull of
 /// that mailbox replaces the local copy with the server's.
+///
+/// Servers with string ids (Microsoft Graph) keep that id in `key`, with `mailbox` holding the
+/// folder id and `uid` a number the worker assigns per folder.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct RemoteRef {
     pub mailbox: String,
     pub uid_validity: u32,
     pub uid: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub key: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]

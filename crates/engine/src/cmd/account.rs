@@ -2,7 +2,7 @@
 
 use super::{CommandSpec, str_param};
 use crate::{AccountDraft, EngineError, Session};
-use rslook_account::{Account, Security, Server};
+use rslook_account::{Account, AccountKind, MS_IMAP, MS_SMTP, MicrosoftSettings, MsBackend, Security, Server};
 use rslook_mail::{Address, Store};
 use serde_json::Value;
 
@@ -21,10 +21,19 @@ pub(super) const COMMANDS: &[CommandSpec] = &[
         id: "account.set",
         label: "Edit Account Fields",
         shortcut: None,
-        params: r#"{"name"?, "email"?, "username"?, "password"?, "imap_host"?, "imap_port"?, "smtp_host"?, "smtp_port"?: string, "imap_security"?, "smtp_security"?: "tls|starttls|none"}"#,
+        params: r#"{"name"?, "email"?, "username"?, "password"?, "imap_host"?, "imap_port"?, "smtp_host"?, "smtp_port"?, "client_id"?: string, "imap_security"?, "smtp_security"?: "tls|starttls|none", "kind"?: "imap|microsoft", "backend"?: "graph|imap"}"#,
         undoable: false,
         enabled: dialog_open,
         run: set,
+    },
+    CommandSpec {
+        id: "account.sign_in",
+        label: "Sign in with Microsoft",
+        shortcut: None,
+        params: "",
+        undoable: false,
+        enabled: can_sign_in,
+        run: sign_in,
     },
     CommandSpec { id: "account.save", label: "Save Account", shortcut: None, params: "", undoable: false, enabled: dialog_open, run: save },
     CommandSpec { id: "account.cancel", label: "Cancel", shortcut: None, params: "", undoable: false, enabled: dialog_open, run: cancel },
@@ -43,6 +52,20 @@ fn dialog_open(s: &Session) -> bool {
     s.account_dialog.is_some()
 }
 
+fn can_sign_in(s: &Session) -> bool {
+    s.account_dialog.as_ref().is_some_and(|d| d.kind == AccountKind::Microsoft && !d.signing_in)
+}
+
+fn sign_in(s: &mut Session, _: &Value) -> Result<(), EngineError> {
+    match s.start_sign_in() {
+        Ok(()) => {
+            s.status = "Finish signing in to Microsoft in your web browser.".into();
+            Ok(())
+        }
+        Err(m) => refuse(s, m),
+    }
+}
+
 /// Caps on dialog fields (hostile params).
 const MAX_FIELD: usize = 512;
 
@@ -59,6 +82,7 @@ fn add(s: &mut Session, _: &Value) -> Result<(), EngineError> {
 
 fn settings(s: &mut Session, _: &Value) -> Result<(), EngineError> {
     let a = s.account.clone().ok_or(EngineError::Disabled("no account"))?;
+    let signed_in = (a.kind == AccountKind::Microsoft).then(|| (a.name.clone(), a.email.clone()));
     s.account_dialog = Some(AccountDraft {
         name: a.name,
         email: a.email,
@@ -70,8 +94,12 @@ fn settings(s: &mut Session, _: &Value) -> Result<(), EngineError> {
         smtp_host: a.smtp.host,
         smtp_port: a.smtp.port.to_string(),
         smtp_security: a.smtp.security,
+        kind: a.kind,
+        ms_backend: a.microsoft.backend,
+        client_id: a.microsoft.client_id.clone(),
+        signed_in,
         editing: true,
-        error: None,
+        ..Default::default()
     });
     Ok(())
 }
@@ -102,6 +130,32 @@ fn set(s: &mut Session, p: &Value) -> Result<(), EngineError> {
             *field = Security::parse(v).ok_or_else(|| EngineError::BadParam(format!("{key} must be tls, starttls or none")))?;
         }
     }
+    if let Some(v) = str_param(p, "client_id") {
+        if v.len() > MAX_FIELD {
+            return Err(EngineError::BadParam("client_id too long".into()));
+        }
+        d.client_id = v.to_string();
+    }
+    let mut changed_how = false;
+    if let Some(v) = str_param(p, "kind") {
+        let kind = match v {
+            "imap" => AccountKind::Imap,
+            "microsoft" => AccountKind::Microsoft,
+            _ => return Err(EngineError::BadParam("kind must be imap or microsoft".into())),
+        };
+        changed_how |= kind != d.kind;
+        d.kind = kind;
+    }
+    if let Some(v) = str_param(p, "backend") {
+        let b = MsBackend::parse(v).ok_or_else(|| EngineError::BadParam("backend must be graph or imap".into()))?;
+        changed_how |= b != d.ms_backend;
+        d.ms_backend = b;
+    }
+    if changed_how && !d.signing_in && !d.editing {
+        // A sign-in grants access for one way in (Graph or IMAP); a different choice needs a new one.
+        d.signed_in = None;
+        d.oauth_token.clear();
+    }
     Ok(())
 }
 
@@ -112,13 +166,29 @@ fn port(text: &str, what: &str) -> Result<u16, String> {
     }
 }
 
-fn draft_to_account(d: &AccountDraft) -> Result<Account, String> {
+fn draft_to_account(d: &AccountDraft, old: Option<&Account>) -> Result<Account, String> {
+    if d.kind == AccountKind::Microsoft {
+        let Some((_, email)) = &d.signed_in else { return Err("Sign in with Microsoft first.".into()) };
+        let keep = old.filter(|o| o.kind == AccountKind::Microsoft).map(|o| o.microsoft.clone()).unwrap_or_default();
+        let a = Account {
+            name: d.name.trim().to_string(),
+            email: email.clone(),
+            username: email.clone(),
+            imap: Server { host: MS_IMAP.0.into(), port: MS_IMAP.1, security: Security::Tls },
+            smtp: Server { host: MS_SMTP.0.into(), port: MS_SMTP.1, security: Security::StartTls },
+            kind: AccountKind::Microsoft,
+            microsoft: MicrosoftSettings { backend: d.ms_backend, client_id: d.client_id.trim().to_string(), ..keep },
+        };
+        a.validate().map_err(|e| e.to_string())?;
+        return Ok(a);
+    }
     let a = Account {
         name: d.name.trim().to_string(),
         email: d.email.trim().to_string(),
         username: if d.username.trim().is_empty() { d.email.trim().to_string() } else { d.username.trim().to_string() },
         imap: Server { host: d.imap_host.trim().to_string(), port: port(&d.imap_port, "incoming (IMAP)")?, security: d.imap_security },
         smtp: Server { host: d.smtp_host.trim().to_string(), port: port(&d.smtp_port, "outgoing (SMTP)")?, security: d.smtp_security },
+        ..Default::default()
     };
     a.validate().map_err(|e| e.to_string())?;
     Ok(a)
@@ -133,17 +203,21 @@ fn refuse(s: &mut Session, msg: String) -> Result<(), EngineError> {
 
 fn save(s: &mut Session, _: &Value) -> Result<(), EngineError> {
     let d = s.account_dialog.clone().ok_or(EngineError::Disabled("account dialog is closed"))?;
-    let account = match draft_to_account(&d) {
+    let old = s.account.clone();
+    let account = match draft_to_account(&d, old.as_ref()) {
         Ok(a) => a,
         Err(m) => return refuse(s, m),
     };
-    let old = s.account.clone();
-    let same_mailbox = old.as_ref().is_some_and(|o| o.key() == account.key());
-    if d.password.is_empty() && !same_mailbox {
-        return refuse(s, "Enter the password.".into());
+    // Same address, same kind and same way in: the cache and the saved secret still fit.
+    let same_mailbox =
+        old.as_ref().is_some_and(|o| o.key() == account.key() && o.kind == account.kind && o.microsoft.backend == account.microsoft.backend);
+    let secret = if account.kind == AccountKind::Microsoft { &d.oauth_token } else { &d.password };
+    if secret.is_empty() && !same_mailbox {
+        let ask = if account.kind == AccountKind::Microsoft { "Sign in with Microsoft first." } else { "Enter the password." };
+        return refuse(s, ask.into());
     }
-    if !d.password.is_empty()
-        && let Err(e) = s.secrets.set(&account.key(), &d.password)
+    if !secret.is_empty()
+        && let Err(e) = s.secrets.set(&account.key(), secret)
     {
         return refuse(s, e.to_string());
     }
@@ -152,7 +226,7 @@ fn save(s: &mut Session, _: &Value) -> Result<(), EngineError> {
     {
         return refuse(s, e.to_string());
     }
-    if let Some(o) = old.as_ref().filter(|_| !same_mailbox) {
+    if let Some(o) = old.as_ref().filter(|o| !same_mailbox && o.key() != account.key()) {
         // A different address is a different mailbox: forget the old one's password.
         let _ = s.secrets.delete(&o.key());
     }
@@ -174,6 +248,7 @@ fn save(s: &mut Session, _: &Value) -> Result<(), EngineError> {
 }
 
 fn cancel(s: &mut Session, _: &Value) -> Result<(), EngineError> {
+    s.cancel_sign_in();
     s.account_dialog = None;
     Ok(())
 }

@@ -11,6 +11,8 @@ workspace = true
 [dependencies]
 rslook-account = { workspace = true }
 rslook-mail = { workspace = true }
+rslook-oauth = { workspace = true }
+base64 = { workspace = true }
 thiserror = { workspace = true }
 log = { workspace = true }
 async-imap = { workspace = true }

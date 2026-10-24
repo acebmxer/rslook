@@ -7,10 +7,10 @@
 use chrono::{DateTime, Utc};
 use lettre::message::header::ContentType;
 use lettre::message::{Mailbox, Message};
-use lettre::transport::smtp::authentication::Credentials;
+use lettre::transport::smtp::authentication::{Credentials, Mechanism};
 use lettre::transport::smtp::client::{Certificate, Tls, TlsParameters};
 use lettre::{AsyncSmtpTransport, AsyncTransport, Tokio1Executor};
-use rslook_account::{Security, Server};
+use rslook_account::{Login, Security, Server};
 use rslook_mail::Address;
 use std::time::Duration;
 
@@ -63,8 +63,14 @@ pub fn build(o: &Outgoing) -> Result<Message, SmtpError> {
     b.header(ContentType::TEXT_PLAIN).body(o.body.clone()).map_err(|e| SmtpError::Build(e.to_string()))
 }
 
-/// Sends a message and returns the exact bytes sent.
+/// Sends a message with password login and returns the exact bytes sent.
 pub async fn send(server: &Server, user: &str, password: &str, extra_roots_pem: &[u8], o: &Outgoing) -> Result<Vec<u8>, SmtpError> {
+    send_with(server, user, &Login::Password(password.to_string()), extra_roots_pem, o).await
+}
+
+/// Sends a message, logging in with a password (PLAIN/LOGIN) or an OAuth access token
+/// (XOAUTH2), and returns the exact bytes sent.
+pub async fn send_with(server: &Server, user: &str, login: &Login, extra_roots_pem: &[u8], o: &Outgoing) -> Result<Vec<u8>, SmtpError> {
     let message = build(o)?;
     let host = server.host.trim();
     let tls_params = || -> Result<TlsParameters, SmtpError> {
@@ -82,7 +88,10 @@ pub async fn send(server: &Server, user: &str, password: &str, extra_roots_pem: 
     };
     let mut builder = AsyncSmtpTransport::<Tokio1Executor>::builder_dangerous(host).port(server.port).tls(tls).timeout(Some(Duration::from_secs(60)));
     if !user.is_empty() {
-        builder = builder.credentials(Credentials::new(user.to_string(), password.to_string()));
+        builder = match login {
+            Login::Password(password) => builder.credentials(Credentials::new(user.to_string(), password.clone())),
+            Login::Bearer(token) => builder.credentials(Credentials::new(user.to_string(), token.clone())).authentication(vec![Mechanism::Xoauth2]),
+        };
     }
     let transport = builder.build();
     let bytes = message.formatted();

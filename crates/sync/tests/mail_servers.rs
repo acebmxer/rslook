@@ -7,12 +7,12 @@
 //! Environment: `RSLOOK_GM_HOST` (GreenMail, default localhost), `RSLOOK_DC_HOST` (Dovecot,
 //! default localhost), `RSLOOK_MP_HOST` (Mailpit, default localhost), `RSLOOK_TEST_CA` (PEM
 //! file of the test CA; the server certificate names all three hosts). GreenMail test ports:
-//! IMAP 3143, SMTP 3025, IMAPS 3993, SMTPS 3465; users flow, offline, tls, bob (password
-//! `pw-<name>`, domain example.test). Dovecot IMAP with STARTTLS on 31143 and Mailpit SMTP with
+//! IMAP 3143, SMTP 3025, IMAPS 3993, SMTPS 3465; users flow, offline, tls, bob, oauth (password
+//! `pw-<name>`, domain example.test; GreenMail takes the password as the XOAUTH2 token). Dovecot IMAP with STARTTLS on 31143 and Mailpit SMTP with
 //! STARTTLS on 1025 (web API on 8025), user start / pw-start.
 
 use rslook_engine::Session;
-use rslook_engine::account::{Account, MemorySecrets, SecretStore, Security, Server};
+use rslook_engine::account::{Account, Login, MemorySecrets, SecretStore, Security, Server};
 use rslook_engine::mail::{Address, FolderKind};
 use rslook_engine::sync::{JobResult, SyncRequest, SyncState};
 use rslook_imap::TlsOptions;
@@ -45,6 +45,7 @@ fn plain_account(user: &str) -> Account {
         username: user.into(),
         imap: Server { host: host(), port: 3143, security: Security::None },
         smtp: Server { host: host(), port: 3025, security: Security::None },
+        ..Default::default()
     }
 }
 
@@ -240,6 +241,7 @@ fn tls_account(user: &str) -> Account {
         username: user.into(),
         imap: Server { host: host(), port: 3993, security: Security::Tls },
         smtp: Server { host: host(), port: 3465, security: Security::Tls },
+        ..Default::default()
     }
 }
 
@@ -298,6 +300,7 @@ fn starttls_account() -> Account {
         username: "start".into(),
         imap: Server { host: env_host("RSLOOK_DC_HOST"), port: 31143, security: Security::StartTls },
         smtp: Server { host: env_host("RSLOOK_MP_HOST"), port: 1025, security: Security::StartTls },
+        ..Default::default()
     }
 }
 
@@ -337,4 +340,32 @@ fn starttls_with_an_untrusted_certificate_is_refused() {
     };
     assert!(rt().block_on(rslook_smtp::send(&starttls_account().smtp, "start", "pw-start", &[], &o)).is_err());
     assert!(!mailpit_subjects().contains("must not arrive"));
+}
+
+/// Microsoft accounts on the IMAP backend sign in with SASL XOAUTH2 on both IMAP and SMTP.
+#[test]
+#[ignore = "needs the test mail servers (scripts/mail-test.sh)"]
+fn xoauth2_sign_in_works_for_imap_and_smtp_and_a_bad_token_is_refused() {
+    let imap = Server { host: host(), port: 3143, security: Security::None };
+    let smtp = Server { host: host(), port: 3025, security: Security::None };
+    let user = "oauth";
+    let o = rslook_smtp::Outgoing {
+        from: Address::new("OAuth", "oauth@example.test"),
+        to: vec![Address::new("", "oauth@example.test")],
+        cc: vec![],
+        subject: "sent with XOAUTH2".into(),
+        body: "Synthetic test mail.".into(),
+        date: chrono::Utc::now(),
+    };
+    rt().block_on(async {
+        let good = Login::Bearer("pw-oauth".into());
+        rslook_smtp::send_with(&smtp, user, &good, &[], &o).await.expect("SMTP AUTH XOAUTH2");
+        let mut c = rslook_imap::connect_with(&imap, user, &good, &TlsOptions::default()).await.expect("IMAP AUTHENTICATE XOAUTH2");
+        let (_, exists) = c.select("INBOX").await.unwrap();
+        assert!(exists >= 1, "the XOAUTH2-sent message arrived");
+        c.logout().await;
+        let bad = Login::Bearer("expired-token".into());
+        assert!(rslook_imap::connect_with(&imap, user, &bad, &TlsOptions::default()).await.is_err());
+        assert!(rslook_smtp::send_with(&smtp, user, &bad, &[], &o).await.is_err());
+    });
 }

@@ -20,7 +20,8 @@ conventions of the ArtCraft Crafting Apps (see `../wordcraft/AGENTS.md`), which 
 - Formats and protocols come from public specs only: RFC 5322 / 2045-2049 (MIME), RFC 9051 (IMAP),
   RFC 5321 (SMTP), RFC 5545 (iCalendar), RFC 6350 (vCard), RFC 4791 / 6352 (CalDAV / CardDAV),
   Microsoft Open Specifications ([MS-PST], [MS-OXMSG], [MS-OXPROPS], [MS-OXCICAL], [MS-ASCMD],
-  EWS, Microsoft Graph). Never copy GPL/LGPL/AGPL code (Thunderbird, Evolution, libpst, …).
+  EWS, Microsoft Graph, Microsoft identity platform OAuth 2.0 (RFC 6749, RFC 7636 PKCE, RFC 8252),
+  SASL XOAUTH2). Never copy GPL/LGPL/AGPL code (Thunderbird, Evolution, libpst, …).
 
 ## Assets: no Microsoft iconography
 Never copy, trace, crop or recreate icons, images, sounds, themes or fonts from Outlook/Office.
@@ -39,10 +40,11 @@ in `ATTRIBUTION.md`.
 |---|---|---|
 | L1 | `mail` | Mail model (accounts, folders, messages, addresses), RFC 5322 parsing, store |
 | L1 | `msg`, `pst` | Outlook file import: `.msg` ([MS-OXMSG], own reader on `cfb`) and the MAPI property mapping; read-only `.pst` ([MS-PST]) through Microsoft's MIT `outlook-pst` crate. Test fixtures come from our own writers (`fixtures` feature) |
-| L2 | `account` | Account settings (IMAP/SMTP servers), accounts file, OS keychain (`SecretStore`) |
-| L3 | `imap`, `smtp` | IMAP client (async-imap, rustls) and SMTP submission (lettre) |
+| L2 | `account` | Account settings (IMAP/SMTP servers or Microsoft), accounts file, OS keychain (`SecretStore`: password or OAuth refresh token) |
+| L3 | `imap`, `smtp` | IMAP client (async-imap, rustls) and SMTP submission (lettre), password or XOAUTH2 login |
+| L3 | `oauth`, `graph` | Microsoft sign-in (OAuth 2.0 auth code + PKCE, loopback redirect, refresh) and a blocking Microsoft Graph mail client; each has an in-process mock server (`mock` feature) for tests |
 | L4 | `engine` | `Session`, undo, **command registry**, Outlook feature catalog, sample data, offline change queue and sync jobs (`sync.rs`, no network code) |
-| L5 | `sync` | Send/Receive worker: runs engine jobs against IMAP/SMTP on a background thread |
+| L5 | `sync` | Send/Receive worker: runs engine jobs against IMAP/SMTP or Microsoft Graph on a background thread; runs Microsoft sign-ins |
 | L6 | `ui-egui` | Outlook-classic-style egui front end (ribbon, folder pane, list, reading pane) |
 | apps | `apps/rslook` | Desktop binary (eframe + wgpu) |
 
@@ -56,6 +58,6 @@ Planned: `ical`, `vcard`.
 
 ## Quality gates
 `cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo test` before every commit.
-GitHub Actions (`.github/workflows/ci.yml`) runs the same three on every push to `dev`/`main` and on pull requests.
+GitHub Actions (`.github/workflows/ci.yml`) runs the same three, plus `scripts/mail-test.sh`, on every push to `dev`/`main` and on pull requests. Each new stage adds its tests there.
 Send/Receive changes: also `scripts/mail-test.sh` (throwaway GreenMail, Dovecot and Mailpit servers, synthetic mail).
 Headless screenshot: `cargo run -p rslook-ui-egui --example ui_shot -- /abs/out.png`.

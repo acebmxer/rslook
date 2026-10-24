@@ -1,6 +1,6 @@
 #!/bin/sh
 # End-to-end Send/Receive tests (crates/sync/tests/mail_servers.rs) against throwaway servers:
-#   GreenMail  IMAP and SMTP, plain and implicit TLS, with test users
+#   GreenMail  IMAP and SMTP, plain and implicit TLS, with test users (password and XOAUTH2 login)
 #   Dovecot    IMAP with STARTTLS
 #   Mailpit    SMTP with STARTTLS and login
 # Synthetic mail and test users only; nothing leaves this machine. Needs podman.
@@ -37,7 +37,7 @@ podman run --rm --security-opt label=disable -v "$WORK":/w -w /w "$DEV_IMAGE" sh
     chmod 644 greenmail.p12 ca.crt server.crt server.key mailpit-auth'
 
 podman network create "$RUN" >/dev/null
-USERS=flow:pw-flow@example.test,offline:pw-offline@example.test,tls:pw-tls@example.test,bob:pw-bob@example.test
+USERS=flow:pw-flow@example.test,offline:pw-offline@example.test,tls:pw-tls@example.test,bob:pw-bob@example.test,oauth:pw-oauth@example.test
 podman run -d --name "$RUN-greenmail" --network "$RUN" --network-alias greenmail --security-opt label=disable \
     -v "$WORK/greenmail.p12":/home/greenmail/test.p12:ro \
     -e GREENMAIL_OPTS="-Dgreenmail.setup.test.all -Dgreenmail.hostname=0.0.0.0 -Dgreenmail.users=$USERS -Dgreenmail.tls.keystore.file=/home/greenmail/test.p12 -Dgreenmail.tls.keystore.password=changeit" \

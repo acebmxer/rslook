@@ -6,8 +6,8 @@ A clean-room, open-source reimplementation of **Outlook classic** (the Windows d
 mail/calendar/contacts client) in pure Rust, for Linux and Windows. Modelled on the ArtCraft
 Crafting Apps (WordCraft, GridCraft, …): egui on the GPU, every action a command, never crash.
 
-Status: pre-alpha. The three-pane mail window works against a local sample mailbox or a real
-IMAP/SMTP account, with an offline cache.
+Status: pre-alpha. The three-pane mail window works against a local sample mailbox, a real
+IMAP/SMTP account or a Microsoft 365 / Outlook.com account, with an offline cache.
 
 ## Run
 
@@ -38,6 +38,13 @@ cargo run -p rslook-pst --features fixtures --example make_sample -- /tmp   # sy
   Settings). SSL/TLS, STARTTLS or (for test servers) no encryption; certificates are checked
   against the system trust store. The password goes to the OS keychain (Secret Service on Linux,
   Credential Manager on Windows), never to a file.
+- Microsoft 365 / Outlook.com accounts (Add Account, account type Microsoft 365 / Outlook.com):
+  you sign in on Microsoft's own page in your web browser (OAuth 2.0 with PKCE); Rslook never
+  sees the password and keeps only the sign-in token, in the OS keychain. Mail goes through
+  Microsoft Graph, or through IMAP and SMTP with OAuth (XOAUTH2) if you pick that instead.
+  Sign-in needs an application (client) ID registered in Microsoft Entra; until Rslook ships its
+  own, enter yours in the account dialog. Work or school tenants may need their admin to allow
+  the app.
 - Send / Receive tab: Send/Receive All Folders (F9), Update Folder (Shift+F9), Send All, Work
   Offline. Sent mail waits in the Outbox, goes out over SMTP and a copy is saved to Sent Items.
   Folders, flags (read, flagged), moves and deletes sync both ways.
@@ -46,9 +53,12 @@ cargo run -p rslook-pst --features fixtures --example make_sample -- /tmp   # sy
 
 ## Roadmap
 
-1. Microsoft 365 / Exchange (Graph, EWS) and Gmail with OAuth.
-2. Calendar (iCalendar, CalDAV), People (vCard, CardDAV), Tasks.
-3. HTML mail rendering, rich compose, rules, Quick Steps, search folders.
+1. Calendar (iCalendar, CalDAV), People (vCard, CardDAV), Tasks.
+2. HTML mail rendering, rich compose, rules, Quick Steps, search folders.
+
+Not planned: Exchange Web Services (Microsoft switches it off in Exchange Online from October
+2026; on-premises Exchange can be used over IMAP) and Gmail sign-in (Google allows it only for
+apps that pass its paid security review; Gmail still works over IMAP with an app password).
 
 ## Clean room
 

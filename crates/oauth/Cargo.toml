@@ -1,0 +1,22 @@
+[package]
+name = "rslook-oauth"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Rslook OAuth 2.0 sign-in for Microsoft 365 (authorization code + PKCE, loopback redirect)"
+
+[lints]
+workspace = true
+
+[features]
+# In-process mock server for tests in other crates (never used by the app).
+mock = []
+
+[dependencies]
+thiserror = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+ureq = { workspace = true }
+getrandom = { workspace = true }
+sha2 = { workspace = true }
+base64 = { workspace = true }

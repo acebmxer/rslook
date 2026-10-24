@@ -7,6 +7,14 @@ All notable changes to Rslook are listed here, newest first. The format follows
 
 ### Added
 
+- **Microsoft 365 and Outlook.com accounts.** Add Account has a new account type, Microsoft
+  365 / Outlook.com: you sign in on Microsoft's page in your web browser and Rslook keeps only
+  the sign-in token, in the OS keychain (it never sees the password). Send/Receive then works
+  through Microsoft Graph, or through IMAP and SMTP with OAuth sign-in if you choose that in the
+  dialog: folders, mail, read and flagged state, moves, deletes and sending, with the same
+  offline cache and queue as IMAP accounts. Signing in needs an application (client) ID
+  registered in Microsoft Entra, entered in the account dialog. When Microsoft stops accepting
+  the saved sign-in, Send/Receive says so and Account Settings lets you sign in again.
 - **Import/Export: Outlook data files (.pst) and saved messages (.msg).** File ▸ Import/Export
   takes the path of a `.pst`, `.msg` or `.eml` file (they can also be given on the command
   line). A `.pst` (Unicode or ANSI) is read without being changed and copied into a new folder

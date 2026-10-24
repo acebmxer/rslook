@@ -3,7 +3,7 @@ name = "rslook-sync"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "Rslook Send/Receive worker: runs engine sync jobs against IMAP and SMTP servers"
+description = "Rslook Send/Receive worker: runs engine sync jobs against IMAP/SMTP servers and Microsoft Graph"
 
 [lints]
 workspace = true
@@ -12,10 +12,16 @@ workspace = true
 rslook-engine = { workspace = true }
 rslook-imap = { workspace = true }
 rslook-smtp = { workspace = true }
+rslook-oauth = { workspace = true }
+rslook-graph = { workspace = true }
+webbrowser = { workspace = true }
 log = { workspace = true }
 tokio = { workspace = true }
 futures = { workspace = true }
 
 [dev-dependencies]
 serde_json = { workspace = true }
+# In-process fake Microsoft sign-in and Graph servers for the Microsoft account tests.
+rslook-oauth = { workspace = true, features = ["mock"] }
+rslook-graph = { workspace = true, features = ["mock"] }
 chrono = { workspace = true }
