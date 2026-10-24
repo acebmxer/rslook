@@ -1,0 +1,21 @@
+[package]
+name = "rslook-ui-egui"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Rslook Outlook-classic-style egui front end"
+
+[lints]
+workspace = true
+
+[dependencies]
+rslook-engine = { workspace = true }
+egui = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+log = { workspace = true }
+
+[dev-dependencies]
+egui = { workspace = true, features = ["default_fonts"] }
+egui_kittest = { workspace = true, features = ["wgpu"] }
+image = { version = "0.25", default-features = false, features = ["png"] }

@@ -1,0 +1,9 @@
+/target
+# Local-only planning, Outlook observation notes and window screenshots (clean room: never committed).
+/plan
+# Microsoft installers and anything produced by Outlook stay out of the repo.
+*.exe
+*:Zone.Identifier
+*.pst
+*.ost
+*.msg

@@ -1,0 +1,15 @@
+[package]
+name = "rslook-mail"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Rslook mail model, store and RFC 5322 parsing"
+
+[lints]
+workspace = true
+
+[dependencies]
+thiserror = { workspace = true }
+serde = { workspace = true }
+chrono = { workspace = true, features = ["serde"] }
+mail-parser = { workspace = true }

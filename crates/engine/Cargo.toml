@@ -1,0 +1,16 @@
+[package]
+name = "rslook-engine"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Rslook session, command registry and Outlook feature catalog"
+
+[lints]
+workspace = true
+
+[dependencies]
+rslook-mail = { workspace = true }
+thiserror = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+log = { workspace = true }
