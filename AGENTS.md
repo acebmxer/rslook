@@ -56,5 +56,6 @@ Planned: `ical`, `vcard`.
 
 ## Quality gates
 `cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo test` before every commit.
+GitHub Actions (`.github/workflows/ci.yml`) runs the same three on every push to `dev`/`main` and on pull requests.
 Send/Receive changes: also `scripts/mail-test.sh` (throwaway GreenMail, Dovecot and Mailpit servers, synthetic mail).
 Headless screenshot: `cargo run -p rslook-ui-egui --example ui_shot -- /abs/out.png`.

@@ -1,5 +1,7 @@
 # Rslook
 
+[![CI](https://github.com/acebmxer/rslook/actions/workflows/ci.yml/badge.svg?branch=dev)](https://github.com/acebmxer/rslook/actions/workflows/ci.yml)
+
 A clean-room, open-source reimplementation of **Outlook classic** (the Windows desktop
 mail/calendar/contacts client) in pure Rust, for Linux and Windows. Modelled on the ArtCraft
 Crafting Apps (WordCraft, GridCraft, …): egui on the GPU, every action a command, never crash.
