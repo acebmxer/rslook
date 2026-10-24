@@ -138,6 +138,88 @@ fn import_eml_from_disk() {
     std::fs::remove_dir_all(&dir).ok();
 }
 
+fn temp_file(name: &str, bytes: &[u8]) -> std::path::PathBuf {
+    let dir = std::env::temp_dir().join(format!("rslook-import-test-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join(name);
+    std::fs::write(&path, bytes).unwrap();
+    path
+}
+
+#[test]
+fn import_pst_adds_a_folder_tree_named_after_the_file_and_undoes() {
+    let path = temp_file("old-archive.pst", &rslook_pst::sample::sample_pst().unwrap());
+    let mut s = sample_session();
+    let before = s.store.clone();
+    run(&mut s, "mail.import", json!({"path": path.to_str().unwrap()}));
+    let top = s.store.folder(s.folder).unwrap().clone();
+    assert_eq!((top.name.as_str(), top.parent, top.kind), ("old-archive", None, FolderKind::Custom));
+    let child = |parent, name: &str| s.store.folders().iter().find(|f| f.parent == Some(parent) && f.name == name).map(|f| f.id);
+    let inbox = child(top.id, "Inbox").unwrap();
+    assert_eq!(s.store.folder(inbox).unwrap().kind, FolderKind::Custom, "an imported Inbox is not the real Inbox");
+    assert_eq!(s.store.total_count(inbox), 3);
+    assert_eq!(s.store.unread_count(inbox), 2);
+    let y2026 = child(child(top.id, "Projects").unwrap(), "2026").unwrap();
+    assert_eq!(s.store.total_count(y2026), 1);
+    assert!(child(top.id, "Calendar").is_none());
+    assert!(s.status.contains("Imported 4 items into old-archive"), "{}", s.status);
+    assert!(s.status.contains("2 items skipped"), "{}", s.status);
+    // The real Inbox is untouched.
+    let real = s.store.folder_of_kind(FolderKind::Inbox).unwrap();
+    assert_eq!(s.store.total_count(real), before.total_count(real));
+
+    // A second import of a file with the same name gets its own folder.
+    run(&mut s, "mail.import_pst", json!({"path": path.to_str().unwrap()}));
+    assert_eq!(s.store.folder(s.folder).unwrap().name, "old-archive (2)");
+
+    run(&mut s, "edit.undo", json!({}));
+    run(&mut s, "edit.undo", json!({}));
+    assert_eq!(s.store, before);
+    std::fs::remove_file(&path).ok();
+}
+
+#[test]
+fn import_msg_into_current_folder() {
+    use rslook_msg::mapi::{MapiMessage, PropValue, id};
+    let mut m = MapiMessage::default();
+    m.props.insert(id::MESSAGE_CLASS, PropValue::String("IPM.Note".into()));
+    m.props.insert(id::SUBJECT, PropValue::String("from a msg file".into()));
+    let path = temp_file("saved.msg", &rslook_msg::fixture::write_msg(&m, false).unwrap());
+    let mut s = sample_session();
+    run(&mut s, "mail.import", json!({"path": path.to_str().unwrap()}));
+    assert_eq!(selected_subject(&s), "from a msg file");
+    assert_eq!(s.store.message(s.selected.unwrap()).unwrap().folder, s.folder);
+    std::fs::remove_file(&path).ok();
+}
+
+#[test]
+fn import_dialog_reports_errors_and_closes_on_success() {
+    let path = temp_file("dialog.pst", &rslook_pst::sample::sample_pst().unwrap());
+    let junk = temp_file("junk.pst", b"not a pst at all");
+    let mut s = sample_session();
+    run(&mut s, "import.open", json!({}));
+    assert!(s.run("import.run", &json!({})).is_err(), "empty path");
+    assert!(s.import_dialog.as_ref().unwrap().error.is_some());
+    run(&mut s, "import.set", json!({"path": "/tmp/notes.txt"}));
+    assert!(s.import_dialog.as_ref().unwrap().error.is_none(), "editing clears the error");
+    assert!(s.run("import.run", &json!({})).is_err(), "wrong extension");
+    let before = s.store.clone();
+    run(&mut s, "import.set", json!({"path": junk.to_str().unwrap()}));
+    assert!(s.run("import.run", &json!({})).is_err(), "damaged file");
+    assert_eq!(s.store, before, "a failed import adds nothing");
+    assert!(s.import_dialog.as_ref().unwrap().error.as_deref().unwrap().contains("could not import"));
+    // Quotes from a pasted path are accepted.
+    run(&mut s, "import.set", json!({"path": format!("\"{}\"", path.to_str().unwrap())}));
+    run(&mut s, "import.run", json!({}));
+    assert!(s.import_dialog.is_none());
+    assert_eq!(s.store.folder(s.folder).unwrap().name, "dialog");
+    run(&mut s, "import.open", json!({}));
+    run(&mut s, "import.cancel", json!({}));
+    assert!(s.import_dialog.is_none());
+    std::fs::remove_file(&path).ok();
+    std::fs::remove_file(&junk).ok();
+}
+
 #[test]
 fn hostile_params_never_panic() {
     let junk = [

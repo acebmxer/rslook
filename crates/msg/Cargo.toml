@@ -1,0 +1,20 @@
+[package]
+name = "rslook-msg"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Rslook .msg import ([MS-OXMSG]) and the MAPI property mapping shared with .pst import"
+
+[lints]
+workspace = true
+
+[features]
+# Synthetic .msg writer for tests and examples (never used by the app).
+fixtures = []
+
+[dependencies]
+rslook-mail = { workspace = true }
+thiserror = { workspace = true }
+chrono = { workspace = true }
+cfb = { workspace = true }
+mail-parser = { workspace = true }

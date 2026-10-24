@@ -63,8 +63,12 @@ fn main() -> eframe::Result<()> {
     };
     let mut app = MailApp::new(session);
     app.error = note;
-    for path in args.iter().filter(|a| a.ends_with(".eml")) {
-        app.execute("mail.import_eml", &serde_json::json!({ "path": path }));
+    let importable = |a: &str| {
+        let a = a.to_ascii_lowercase();
+        [".eml", ".msg", ".pst"].iter().any(|e| a.ends_with(e))
+    };
+    for path in args.iter().filter(|a| importable(a)) {
+        app.execute("mail.import", &serde_json::json!({ "path": path }));
     }
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()

@@ -36,6 +36,8 @@ pub enum EngineError {
     Io(String),
     #[error("internal error in {0}")]
     Panic(String),
+    #[error("could not import: {0}")]
+    Import(String),
 }
 
 /// The main window's modules (Outlook's navigation bar).
@@ -87,6 +89,13 @@ pub struct AccountDraft {
     pub error: Option<String>,
 }
 
+/// The Import/Export dialog while it is open: the file to import and why the last try failed.
+#[derive(Clone, Default, PartialEq, Eq)]
+pub struct ImportDraft {
+    pub path: String,
+    pub error: Option<String>,
+}
+
 impl std::fmt::Debug for AccountDraft {
     // Never print the password.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -106,6 +115,7 @@ pub struct Session {
     pub folder_pane: bool,
     pub compose: Option<Draft>,
     pub account_dialog: Option<AccountDraft>,
+    pub import_dialog: Option<ImportDraft>,
     /// Last command's outcome for the status bar.
     pub status: String,
     /// Work Offline: no connections, changes wait in the queue.
@@ -138,6 +148,7 @@ impl Session {
             folder_pane: true,
             compose: None,
             account_dialog: None,
+            import_dialog: None,
             status: String::new(),
             work_offline: false,
             sync_state: SyncState::Idle,

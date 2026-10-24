@@ -20,3 +20,5 @@ log = { workspace = true }
 egui = { workspace = true, features = ["default_fonts"] }
 egui_kittest = { workspace = true, features = ["wgpu"] }
 image = { version = "0.25", default-features = false, features = ["png"] }
+# Synthetic .pst for the import dialog test.
+rslook-pst = { workspace = true, features = ["fixtures"] }

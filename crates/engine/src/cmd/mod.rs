@@ -3,6 +3,7 @@
 mod account;
 mod compose;
 mod edit;
+mod import;
 mod mail;
 mod sendrecv;
 mod view;
@@ -56,6 +57,7 @@ pub fn commands() -> Vec<CommandSpec> {
     v.extend_from_slice(edit::COMMANDS);
     v.extend_from_slice(sendrecv::COMMANDS);
     v.extend_from_slice(account::COMMANDS);
+    v.extend_from_slice(import::COMMANDS);
     v
 }
 

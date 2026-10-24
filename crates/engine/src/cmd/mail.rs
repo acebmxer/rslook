@@ -195,12 +195,12 @@ fn toggle_flag(s: &mut Session, _: &Value) -> Result<(), EngineError> {
 
 fn import_eml(s: &mut Session, p: &Value) -> Result<(), EngineError> {
     let path = str_param(p, "path").ok_or_else(|| EngineError::BadParam("path required".into()))?;
-    let meta = std::fs::metadata(path).map_err(|e| EngineError::Io(e.to_string()))?;
-    let len = usize::try_from(meta.len()).unwrap_or(usize::MAX);
-    if len > rslook_mail::parse::MAX_MESSAGE_BYTES {
-        return Err(EngineError::Mail(rslook_mail::MailError::TooLarge(len)));
-    }
-    let bytes = std::fs::read(path).map_err(|e| EngineError::Io(e.to_string()))?;
+    eml(s, path)
+}
+
+/// Imports one `.eml` file into the current folder.
+pub(super) fn eml(s: &mut Session, path: &str) -> Result<(), EngineError> {
+    let bytes = super::import::read_capped(path, rslook_mail::parse::MAX_MESSAGE_BYTES)?;
     let msg = rslook_mail::parse::parse_rfc5322(&bytes)?;
     let folder = s.folder;
     let id = s.store.add_message(folder, msg)?;

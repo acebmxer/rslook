@@ -11,10 +11,11 @@ IMAP/SMTP account, with an offline cache.
 
 ```
 cargo run --release -p rslook            # sample mailbox until you add an account (File tab)
-cargo run --release -p rslook -- a.eml   # also import .eml files
+cargo run --release -p rslook -- a.eml   # also import .eml, .msg or .pst files
 cargo test
 scripts/mail-test.sh                     # end-to-end Send/Receive against throwaway mail servers (podman)
 cargo run -p rslook-ui-egui --example ui_shot -- /tmp/shot.png mail.reply
+cargo run -p rslook-pst --features fixtures --example make_sample -- /tmp   # synthetic .pst and .msg to import
 ```
 
 ## What works
@@ -25,7 +26,12 @@ cargo run -p rslook-ui-egui --example ui_shot -- /tmp/shot.png mail.reply
   then permanent), Archive, Junk, Move, Mark read/unread, Follow up, Search, Undo/Redo.
 - Outlook classic keyboard shortcuts (Ctrl+N/R/Shift+R/F/Q/U/E/Enter, Delete, Backspace, Insert,
   Ctrl+1..4, Ctrl+. / Ctrl+,, F9, Shift+F9).
-- RFC 5322 / MIME import (`.eml`).
+- Import/Export (File tab): an Outlook data file (`.pst`, Unicode or ANSI, read-only through
+  Microsoft's open-source [MS-PST] reader) is copied into a new folder named after the file,
+  with its folder tree inside; a single message (`.msg` per [MS-OXMSG], or RFC 5322 / MIME
+  `.eml`) goes into the current folder. Calendar items, contacts, tasks and notes are skipped
+  for now, and attachments are listed by name and size. Imports are kept in the account's
+  offline cache; without an account they go into the sample mailbox and are gone after closing.
 - Accounts: one IMAP (RFC 9051) + SMTP account, added on the File tab (Add Account / Account
   Settings). SSL/TLS, STARTTLS or (for test servers) no encryption; certificates are checked
   against the system trust store. The password goes to the OS keychain (Secret Service on Linux,
@@ -38,10 +44,9 @@ cargo run -p rslook-ui-egui --example ui_shot -- /tmp/shot.png mail.reply
 
 ## Roadmap
 
-1. `.pst` / `.msg` import from the Microsoft Open Specifications ([MS-PST], [MS-OXMSG]).
-2. Microsoft 365 / Exchange (Graph, EWS) and Gmail with OAuth.
-3. Calendar (iCalendar, CalDAV), People (vCard, CardDAV), Tasks.
-4. HTML mail rendering, rich compose, rules, Quick Steps, search folders.
+1. Microsoft 365 / Exchange (Graph, EWS) and Gmail with OAuth.
+2. Calendar (iCalendar, CalDAV), People (vCard, CardDAV), Tasks.
+3. HTML mail rendering, rich compose, rules, Quick Steps, search folders.
 
 ## Clean room
 

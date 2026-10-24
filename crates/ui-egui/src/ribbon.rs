@@ -235,6 +235,9 @@ fn file(app: &mut MailApp, ui: &mut Ui) {
         big(app, ui, Icon::People, "Add Account", "account.add", json!({}));
         big(app, ui, Icon::People, "Account Settings", "account.settings", json!({}));
     });
+    group(ui, "Open & Export", |ui| {
+        big(app, ui, Icon::Move, "Import/Export", "import.open", json!({}));
+    });
     if let Some(a) = app.session.account() {
         let text = format!("{}  ·  IMAP {}:{}  ·  SMTP {}:{}", a.email, a.imap.host, a.imap.port, a.smtp.host, a.smtp.port);
         ui.label(egui::RichText::new(text).color(T.text_dim));
@@ -242,8 +245,6 @@ fn file(app: &mut MailApp, ui: &mut Ui) {
 }
 
 fn folder(app: &mut MailApp, ui: &mut Ui) {
-    group(ui, "Import", |ui| {
-        ui.label("Import a message with the mail.import_eml command (File ▸ Open & Export coming).");
-        let _ = app;
-    });
+    let _ = app;
+    ui.label(egui::RichText::new("Folder commands are not available yet.").color(T.text_dim));
 }

@@ -1,0 +1,27 @@
+[package]
+name = "rslook-pst"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Rslook read-only .pst import ([MS-PST]) through the outlook-pst crate"
+
+[lints]
+workspace = true
+
+[features]
+# Synthetic .pst writer for tests and examples (never used by the app).
+fixtures = []
+
+[dependencies]
+rslook-mail = { workspace = true }
+rslook-msg = { workspace = true }
+thiserror = { workspace = true }
+outlook-pst = { workspace = true }
+
+[dev-dependencies]
+chrono = { workspace = true }
+rslook-msg = { workspace = true, features = ["fixtures"] }
+
+[[example]]
+name = "make_sample"
+required-features = ["fixtures"]

@@ -6,6 +6,7 @@
 
 mod account;
 pub mod icons;
+mod import;
 mod panes;
 mod ribbon;
 pub mod theme;
@@ -140,6 +141,7 @@ impl MailApp {
         panes::nav_bar(self, ui);
         panes::main_area(self, ui);
         account::dialog(self, &ctx);
+        import::dialog(self, &ctx);
         self.flush();
         self.pump(&ctx);
     }
@@ -225,5 +227,30 @@ mod tests {
         h.run_steps(2);
         assert!(h.state().enabled("sendrecv.all"));
         assert!(h.state().session.has_requests(), "saving asks for a first Send/Receive");
+    }
+
+    /// File ▸ Import/Export opens the dialog; a typed path and Import go through `import.*`.
+    #[test]
+    fn import_dialog_renders_and_imports() {
+        let dir = std::env::temp_dir().join(format!("rslook-ui-import-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("synthetic.pst");
+        std::fs::write(&path, rslook_pst::sample::sample_pst().unwrap()).unwrap();
+        let app = MailApp::new(rslook_engine::sample::sample_session());
+        let mut h = egui_kittest::Harness::builder().with_size(egui::vec2(1400.0, 860.0)).build_ui_state(|ui, app: &mut MailApp| app.ui(ui), app);
+        h.state_mut().tab = RibbonTab::File;
+        h.run_steps(2);
+        h.state_mut().execute("import.open", &json!({}));
+        h.run_steps(2);
+        assert!(h.state().session.import_dialog.is_some());
+        h.state_mut().execute("import.set", &json!({"path": path.to_str().unwrap()}));
+        h.run_steps(2);
+        h.state_mut().execute("import.run", &json!({}));
+        h.run_steps(2);
+        assert!(h.state().error.is_none(), "{:?}", h.state().error);
+        assert!(h.state().session.import_dialog.is_none());
+        let s = &h.state().session;
+        assert_eq!(s.store.folder(s.folder).unwrap().name, "synthetic");
+        std::fs::remove_dir_all(&dir).ok();
     }
 }

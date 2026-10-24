@@ -65,7 +65,7 @@ pub const FEATURES: &[Feature] = &[
     // File (Backstage)
     f("File", "Info", "Add Account", Some("account.add")),
     f("File", "Info", "Account Settings", Some("account.settings")),
-    f("File", "Open & Export", "Import/Export", Some("mail.import_eml")),
+    f("File", "Open & Export", "Import/Export", Some("import.open")),
     f("File", "Open & Export", "Open Outlook Data File", None),
     f("File", "Print", "Print", None),
     f("File", "Options", "Options", None),

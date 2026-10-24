@@ -38,6 +38,7 @@ in `ATTRIBUTION.md`.
 | Layer | Crate | Job |
 |---|---|---|
 | L1 | `mail` | Mail model (accounts, folders, messages, addresses), RFC 5322 parsing, store |
+| L1 | `msg`, `pst` | Outlook file import: `.msg` ([MS-OXMSG], own reader on `cfb`) and the MAPI property mapping; read-only `.pst` ([MS-PST]) through Microsoft's MIT `outlook-pst` crate. Test fixtures come from our own writers (`fixtures` feature) |
 | L2 | `account` | Account settings (IMAP/SMTP servers), accounts file, OS keychain (`SecretStore`) |
 | L3 | `imap`, `smtp` | IMAP client (async-imap, rustls) and SMTP submission (lettre) |
 | L4 | `engine` | `Session`, undo, **command registry**, Outlook feature catalog, sample data, offline change queue and sync jobs (`sync.rs`, no network code) |
@@ -45,7 +46,7 @@ in `ATTRIBUTION.md`.
 | L6 | `ui-egui` | Outlook-classic-style egui front end (ribbon, folder pane, list, reading pane) |
 | apps | `apps/rslook` | Desktop binary (eframe + wgpu) |
 
-Planned: `pst` (read-only [MS-PST] import), `msg` ([MS-OXMSG]), `ical`, `vcard`.
+Planned: `ical`, `vcard`.
 
 - **Everything is a command.** User-visible behaviour is a `CommandSpec` in
   `crates/engine/src/cmd/*.rs`. The ribbon, shortcuts and (later) CLI/MCP dispatch by id.

@@ -11,8 +11,15 @@ workspace = true
 [dependencies]
 rslook-mail = { workspace = true }
 rslook-account = { workspace = true }
+rslook-msg = { workspace = true }
+rslook-pst = { workspace = true }
 thiserror = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 chrono = { workspace = true }
 log = { workspace = true }
+
+[dev-dependencies]
+# Synthetic .pst / .msg writers for the import tests.
+rslook-pst = { workspace = true, features = ["fixtures"] }
+rslook-msg = { workspace = true, features = ["fixtures"] }
