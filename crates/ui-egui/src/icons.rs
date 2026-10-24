@@ -122,7 +122,16 @@ pub fn paint(painter: &Painter, rect: Rect, icon: Icon, color: Color32) {
             painter.add(egui::Shape::convex_polygon(pts, color, Stroke::NONE));
         }
         Icon::Attach => {
-            let pts = vec![p(r, 0.62, 0.3), p(r, 0.62, 0.72), p(r, 0.5, 0.86), p(r, 0.38, 0.72), p(r, 0.38, 0.22), p(r, 0.46, 0.12), p(r, 0.54, 0.22), p(r, 0.54, 0.66)];
+            let pts = vec![
+                p(r, 0.62, 0.3),
+                p(r, 0.62, 0.72),
+                p(r, 0.5, 0.86),
+                p(r, 0.38, 0.72),
+                p(r, 0.38, 0.22),
+                p(r, 0.46, 0.12),
+                p(r, 0.54, 0.22),
+                p(r, 0.54, 0.66),
+            ];
             painter.add(egui::Shape::line(pts, s));
         }
         Icon::Calendar => {

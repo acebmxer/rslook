@@ -114,9 +114,9 @@ pub fn parse_shortcut(s: &str) -> Option<(Modifiers, Key)> {
     let mut key = None;
     for part in s.split('+') {
         match part {
-            "Ctrl" => mods = mods | Modifiers::COMMAND,
-            "Shift" => mods = mods | Modifiers::SHIFT,
-            "Alt" => mods = mods | Modifiers::ALT,
+            "Ctrl" => mods |= Modifiers::COMMAND,
+            "Shift" => mods |= Modifiers::SHIFT,
+            "Alt" => mods |= Modifiers::ALT,
             "." => key = Some(Key::Period),
             "," => key = Some(Key::Comma),
             "" => {}

@@ -15,15 +15,7 @@ pub(super) const COMMANDS: &[CommandSpec] = &[
         enabled: composing,
         run: set,
     },
-    CommandSpec {
-        id: "compose.send",
-        label: "Send",
-        shortcut: Some("Ctrl+Enter"),
-        params: "",
-        undoable: true,
-        enabled: composing,
-        run: send,
-    },
+    CommandSpec { id: "compose.send", label: "Send", shortcut: Some("Ctrl+Enter"), params: "", undoable: true, enabled: composing, run: send },
     CommandSpec {
         id: "compose.save_draft",
         label: "Save",
@@ -33,15 +25,7 @@ pub(super) const COMMANDS: &[CommandSpec] = &[
         enabled: composing,
         run: save_draft,
     },
-    CommandSpec {
-        id: "compose.discard",
-        label: "Discard",
-        shortcut: Some("Escape"),
-        params: "",
-        undoable: false,
-        enabled: composing,
-        run: discard,
-    },
+    CommandSpec { id: "compose.discard", label: "Discard", shortcut: Some("Escape"), params: "", undoable: false, enabled: composing, run: discard },
 ];
 
 /// Caps on composed fields (hostile params).

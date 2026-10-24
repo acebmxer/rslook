@@ -24,15 +24,7 @@ pub(super) const COMMANDS: &[CommandSpec] = &[
         enabled: always,
         run: select_message,
     },
-    CommandSpec {
-        id: "message.next",
-        label: "Next Item",
-        shortcut: Some("Ctrl+."),
-        params: "",
-        undoable: false,
-        enabled: always,
-        run: next,
-    },
+    CommandSpec { id: "message.next", label: "Next Item", shortcut: Some("Ctrl+."), params: "", undoable: false, enabled: always, run: next },
     CommandSpec {
         id: "message.previous",
         label: "Previous Item",
@@ -60,15 +52,7 @@ pub(super) const COMMANDS: &[CommandSpec] = &[
         enabled: always,
         run: reading_pane,
     },
-    CommandSpec {
-        id: "view.folder_pane",
-        label: "Folder Pane",
-        shortcut: None,
-        params: "",
-        undoable: false,
-        enabled: always,
-        run: folder_pane,
-    },
+    CommandSpec { id: "view.folder_pane", label: "Folder Pane", shortcut: None, params: "", undoable: false, enabled: always, run: folder_pane },
     CommandSpec {
         id: "module.mail",
         label: "Mail",

@@ -6,24 +6,8 @@ use rslook_mail::{Address, FolderKind, Message};
 use serde_json::Value;
 
 pub(super) const COMMANDS: &[CommandSpec] = &[
-    CommandSpec {
-        id: "mail.new",
-        label: "New Email",
-        shortcut: Some("Ctrl+N"),
-        params: "",
-        undoable: false,
-        enabled: always,
-        run: new_mail,
-    },
-    CommandSpec {
-        id: "mail.reply",
-        label: "Reply",
-        shortcut: Some("Ctrl+R"),
-        params: "",
-        undoable: false,
-        enabled: has_selection,
-        run: reply,
-    },
+    CommandSpec { id: "mail.new", label: "New Email", shortcut: Some("Ctrl+N"), params: "", undoable: false, enabled: always, run: new_mail },
+    CommandSpec { id: "mail.reply", label: "Reply", shortcut: Some("Ctrl+R"), params: "", undoable: false, enabled: has_selection, run: reply },
     CommandSpec {
         id: "mail.reply_all",
         label: "Reply All",
@@ -33,24 +17,8 @@ pub(super) const COMMANDS: &[CommandSpec] = &[
         enabled: has_selection,
         run: reply_all,
     },
-    CommandSpec {
-        id: "mail.forward",
-        label: "Forward",
-        shortcut: Some("Ctrl+F"),
-        params: "",
-        undoable: false,
-        enabled: has_selection,
-        run: forward,
-    },
-    CommandSpec {
-        id: "mail.delete",
-        label: "Delete",
-        shortcut: Some("Delete"),
-        params: "",
-        undoable: true,
-        enabled: has_selection,
-        run: delete,
-    },
+    CommandSpec { id: "mail.forward", label: "Forward", shortcut: Some("Ctrl+F"), params: "", undoable: false, enabled: has_selection, run: forward },
+    CommandSpec { id: "mail.delete", label: "Delete", shortcut: Some("Delete"), params: "", undoable: true, enabled: has_selection, run: delete },
     CommandSpec {
         id: "mail.archive",
         label: "Archive",
@@ -96,15 +64,7 @@ pub(super) const COMMANDS: &[CommandSpec] = &[
         enabled: has_selection,
         run: toggle_flag,
     },
-    CommandSpec {
-        id: "mail.junk",
-        label: "Junk",
-        shortcut: None,
-        params: "",
-        undoable: true,
-        enabled: has_selection,
-        run: junk,
-    },
+    CommandSpec { id: "mail.junk", label: "Junk", shortcut: None, params: "", undoable: true, enabled: has_selection, run: junk },
     CommandSpec {
         id: "mail.import_eml",
         label: "Import .eml",

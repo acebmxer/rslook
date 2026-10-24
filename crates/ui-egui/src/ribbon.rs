@@ -43,7 +43,12 @@ pub(crate) fn show(app: &mut MailApp, ui: &mut Ui) {
     });
     egui::Panel::top("ribbon_body")
         .exact_size(94.0)
-        .frame(egui::Frame::NONE.fill(T.ribbon).stroke(Stroke::new(1.0, T.border)).inner_margin(egui::Margin { left: 6, right: 6, top: 4, bottom: 2 }))
+        .frame(egui::Frame::NONE.fill(T.ribbon).stroke(Stroke::new(1.0, T.border)).inner_margin(egui::Margin {
+            left: 6,
+            right: 6,
+            top: 4,
+            bottom: 2,
+        }))
         .show(ui, |ui| {
             ui.horizontal(|ui| match app.tab {
                 RibbonTab::Home | RibbonTab::File => home(app, ui),
@@ -112,7 +117,13 @@ fn big(app: &mut MailApp, ui: &mut Ui, icon: Icon, label: &str, cmd: &str, param
     let color = if enabled { T.accent } else { T.border };
     let ir = Rect::from_center_size(pos2(rect.center().x, rect.top() + 22.0), vec2(32.0, 32.0));
     icons::paint(p, ir, icon, color);
-    p.text(pos2(rect.center().x, rect.top() + 50.0), Align2::CENTER_TOP, label, FontId::proportional(12.0), if enabled { T.text } else { T.text_dim });
+    p.text(
+        pos2(rect.center().x, rect.top() + 50.0),
+        Align2::CENTER_TOP,
+        label,
+        FontId::proportional(12.0),
+        if enabled { T.text } else { T.text_dim },
+    );
     let resp = resp.on_hover_text(shortcut_tip(label, cmd));
     if resp.clicked() {
         app.dispatch(cmd, params);
@@ -130,7 +141,13 @@ fn small(app: &mut MailApp, ui: &mut Ui, icon: Icon, label: &str, cmd: &str, par
     }
     let color = if enabled { T.accent } else { T.border };
     icons::paint(p, Rect::from_center_size(pos2(rect.left() + 13.0, rect.center().y), vec2(16.0, 16.0)), icon, color);
-    p.text(pos2(rect.left() + 26.0, rect.center().y), Align2::LEFT_CENTER, label, FontId::proportional(12.0), if enabled { T.text } else { T.text_dim });
+    p.text(
+        pos2(rect.left() + 26.0, rect.center().y),
+        Align2::LEFT_CENTER,
+        label,
+        FontId::proportional(12.0),
+        if enabled { T.text } else { T.text_dim },
+    );
     let resp = resp.on_hover_text(shortcut_tip(label, cmd));
     if resp.clicked() {
         app.dispatch(cmd, params);
@@ -185,7 +202,9 @@ fn view(app: &mut MailApp, ui: &mut Ui) {
         big(app, ui, Icon::Mail, "Folder Pane", "view.folder_pane", json!({}));
         column(ui, |ui| {
             let cur = app.session.reading_pane;
-            for (pos, label, v) in [(ReadingPane::Right, "Right", "right"), (ReadingPane::Bottom, "Bottom", "bottom"), (ReadingPane::Off, "Off", "off")] {
+            for (pos, label, v) in
+                [(ReadingPane::Right, "Right", "right"), (ReadingPane::Bottom, "Bottom", "bottom"), (ReadingPane::Off, "Off", "off")]
+            {
                 let mark = if cur == pos { "● " } else { "   " };
                 small(app, ui, Icon::Mail, &format!("{mark}Reading Pane: {label}"), "view.reading_pane", json!({"position": v}));
             }

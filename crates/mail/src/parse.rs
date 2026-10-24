@@ -10,9 +10,7 @@ pub const MAX_MESSAGE_BYTES: usize = 64 * 1024 * 1024;
 
 fn addrs(a: Option<&mail_parser::Address<'_>>) -> Vec<Address> {
     a.map(|a| {
-        a.iter()
-            .map(|x| Address { name: x.name().unwrap_or_default().to_string(), email: x.address().unwrap_or_default().to_string() })
-            .collect()
+        a.iter().map(|x| Address { name: x.name().unwrap_or_default().to_string(), email: x.address().unwrap_or_default().to_string() }).collect()
     })
     .unwrap_or_default()
 }
@@ -35,10 +33,8 @@ pub fn parse_rfc5322(bytes: &[u8]) -> Result<NewMessage, MailError> {
             _ => Importance::Normal,
         },
     };
-    let attachments = msg
-        .attachments()
-        .map(|p| Attachment { name: p.attachment_name().unwrap_or("attachment").to_string(), size: p.contents().len() })
-        .collect();
+    let attachments =
+        msg.attachments().map(|p| Attachment { name: p.attachment_name().unwrap_or("attachment").to_string(), size: p.contents().len() }).collect();
     Ok(NewMessage {
         from,
         to: addrs(msg.to()),

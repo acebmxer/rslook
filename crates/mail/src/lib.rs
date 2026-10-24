@@ -186,15 +186,9 @@ impl Store {
     /// A mailbox with the standard folders, in Outlook's folder-pane order.
     pub fn new(account: Address) -> Self {
         let mut s = Store { account, folders: Vec::new(), messages: Vec::new(), next_id: 1 };
-        for kind in [
-            FolderKind::Inbox,
-            FolderKind::Drafts,
-            FolderKind::Sent,
-            FolderKind::Deleted,
-            FolderKind::Archive,
-            FolderKind::Junk,
-            FolderKind::Outbox,
-        ] {
+        for kind in
+            [FolderKind::Inbox, FolderKind::Drafts, FolderKind::Sent, FolderKind::Deleted, FolderKind::Archive, FolderKind::Junk, FolderKind::Outbox]
+        {
             s.add_folder(kind.default_name(), kind, None);
         }
         s

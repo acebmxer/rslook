@@ -56,7 +56,10 @@ pub(crate) fn nav_bar(app: &mut MailApp, ui: &mut Ui) {
                     let color = if active { T.accent } else { T.text_dim };
                     icons::paint(ui.painter(), Rect::from_center_size(rect.center(), vec2(20.0, 20.0)), icon, color);
                     if active {
-                        ui.painter().line_segment([pos2(rect.left() + 8.0, rect.bottom()), pos2(rect.right() - 8.0, rect.bottom())], Stroke::new(2.5, T.accent));
+                        ui.painter().line_segment(
+                            [pos2(rect.left() + 8.0, rect.bottom()), pos2(rect.right() - 8.0, rect.bottom())],
+                            Stroke::new(2.5, T.accent),
+                        );
                     }
                     if resp.on_hover_text(tip).clicked() {
                         app.dispatch(cmd, json!({}));
@@ -92,11 +95,21 @@ pub(crate) fn main_area(app: &mut MailApp, ui: &mut Ui) {
     let list_frame = egui::Frame::NONE.fill(T.window).stroke(Stroke::new(1.0, T.border));
     match app.session.reading_pane {
         ReadingPane::Right => {
-            egui::Panel::left("message_list").default_size(380.0).size_range(260.0..=700.0).resizable(true).frame(list_frame).show(ui, |ui| message_list(app, ui));
+            egui::Panel::left("message_list")
+                .default_size(380.0)
+                .size_range(260.0..=700.0)
+                .resizable(true)
+                .frame(list_frame)
+                .show(ui, |ui| message_list(app, ui));
             egui::CentralPanel::default().frame(egui::Frame::NONE.fill(T.window)).show(ui, |ui| reading_area(app, ui));
         }
         ReadingPane::Bottom => {
-            egui::Panel::top("message_list").default_size(300.0).size_range(120.0..=700.0).resizable(true).frame(list_frame).show(ui, |ui| message_list(app, ui));
+            egui::Panel::top("message_list")
+                .default_size(300.0)
+                .size_range(120.0..=700.0)
+                .resizable(true)
+                .frame(list_frame)
+                .show(ui, |ui| message_list(app, ui));
             egui::CentralPanel::default().frame(egui::Frame::NONE.fill(T.window)).show(ui, |ui| reading_area(app, ui));
         }
         ReadingPane::Off => {
@@ -126,7 +139,7 @@ fn folder_row(app: &mut MailApp, ui: &mut Ui, f: &Folder, depth: usize) {
     let x = rect.left() + 18.0 + depth as f32 * 14.0;
     let bold = unread > 0 && f.kind != FolderKind::Drafts;
     let font = FontId::proportional(13.0);
-    let name_color = if bold { T.text } else { T.text };
+    let name_color = T.text;
     let g = p.layout_no_wrap(f.name.clone(), font.clone(), name_color);
     let name_w = g.size().x;
     p.galley(pos2(x, rect.center().y - g.size().y / 2.0), g, name_color);
@@ -318,7 +331,9 @@ fn reading_area(app: &mut MailApp, ui: &mut Ui) {
     };
     egui::Frame::NONE.inner_margin(egui::Margin { left: 20, right: 20, top: 14, bottom: 10 }).show(ui, |ui| {
         ui.horizontal(|ui| {
-            for (icon, label, cmd) in [(Icon::Reply, "Reply", "mail.reply"), (Icon::ReplyAll, "Reply All", "mail.reply_all"), (Icon::Forward, "Forward", "mail.forward")] {
+            for (icon, label, cmd) in
+                [(Icon::Reply, "Reply", "mail.reply"), (Icon::ReplyAll, "Reply All", "mail.reply_all"), (Icon::Forward, "Forward", "mail.forward")]
+            {
                 let w = ui.painter().layout_no_wrap(label.to_string(), FontId::proportional(12.5), T.text).size().x + 34.0;
                 let (r, resp) = ui.allocate_exact_size(vec2(w, 26.0), Sense::click());
                 let fill = if resp.hovered() { T.hover } else { T.window };
@@ -351,7 +366,9 @@ fn reading_area(app: &mut MailApp, ui: &mut Ui) {
                 ui.horizontal(|ui| {
                     ui.label(RichText::new(m.from.full()).size(14.0).color(T.text));
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        ui.label(RichText::new(m.date.with_timezone(&Local).format("%a %-m/%-d/%Y %-I:%M %p").to_string()).size(12.0).color(T.text_dim));
+                        ui.label(
+                            RichText::new(m.date.with_timezone(&Local).format("%a %-m/%-d/%Y %-I:%M %p").to_string()).size(12.0).color(T.text_dim),
+                        );
                     });
                 });
                 let to: Vec<String> = m.to.iter().map(|a| a.display().to_string()).collect();
@@ -374,7 +391,12 @@ fn reading_area(app: &mut MailApp, ui: &mut Ui) {
                     let w = ui.painter().layout_no_wrap(text.clone(), FontId::proportional(12.5), T.text).size().x + 36.0;
                     let (r, _) = ui.allocate_exact_size(vec2(w, 34.0), Sense::hover());
                     ui.painter().rect(r, CornerRadius::same(3), T.pane, Stroke::new(1.0, T.border), egui::StrokeKind::Inside);
-                    icons::paint(ui.painter(), Rect::from_center_size(pos2(r.left() + 15.0, r.center().y), vec2(16.0, 16.0)), Icon::Attach, T.text_dim);
+                    icons::paint(
+                        ui.painter(),
+                        Rect::from_center_size(pos2(r.left() + 15.0, r.center().y), vec2(16.0, 16.0)),
+                        Icon::Attach,
+                        T.text_dim,
+                    );
                     ui.painter().text(pos2(r.left() + 28.0, r.center().y), Align2::LEFT_CENTER, text, FontId::proportional(12.5), T.text);
                 }
             });
@@ -392,7 +414,7 @@ fn reading_area(app: &mut MailApp, ui: &mut Ui) {
 fn initials(name: &str) -> String {
     let mut it = name.split_whitespace().filter_map(|w| w.chars().next());
     let a = it.next().map(|c| c.to_uppercase().to_string()).unwrap_or_default();
-    let b = it.last().map(|c| c.to_uppercase().to_string()).unwrap_or_default();
+    let b = it.next_back().map(|c| c.to_uppercase().to_string()).unwrap_or_default();
     format!("{a}{b}")
 }
 
