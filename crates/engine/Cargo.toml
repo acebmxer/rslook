@@ -10,7 +10,9 @@ workspace = true
 
 [dependencies]
 rslook-mail = { workspace = true }
+rslook-account = { workspace = true }
 thiserror = { workspace = true }
+serde = { workspace = true }
 serde_json = { workspace = true }
 chrono = { workspace = true }
 log = { workspace = true }

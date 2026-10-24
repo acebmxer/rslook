@@ -46,6 +46,7 @@ pub fn parse_rfc5322(bytes: &[u8]) -> Result<NewMessage, MailError> {
         flagged: false,
         importance,
         attachments,
+        remote: None,
     })
 }
 

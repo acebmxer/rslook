@@ -1,4 +1,5 @@
-//! Compose window commands. Sending has no transport yet: a sent message goes to Sent Items.
+//! Compose window commands. Without an account a sent message goes straight to Sent Items; with
+//! one it waits in the Outbox for Send/Receive.
 
 use super::{CommandSpec, composing, str_param};
 use crate::{EngineError, Session};
@@ -75,6 +76,14 @@ fn send(s: &mut Session, _: &Value) -> Result<(), EngineError> {
     let to_empty = s.compose.as_ref().is_none_or(|d| Address::parse_list(&d.to).is_empty() && Address::parse_list(&d.cc).is_empty());
     if to_empty {
         return Err(EngineError::BadParam("There must be at least one name or contact group in the To or Cc box.".into()));
+    }
+    if s.account().is_some() {
+        // With an account, sent mail waits in the Outbox until Send/Receive hands it to SMTP.
+        file_into(s, FolderKind::Outbox, true)?;
+        s.compose = None;
+        s.request(crate::sync::SyncRequest::SendAll);
+        s.status = if s.work_offline { "Working offline: the message waits in the Outbox".into() } else { "Sending…".into() };
+        return Ok(());
     }
     file_into(s, FolderKind::Sent, true)?;
     s.compose = None;

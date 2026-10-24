@@ -13,3 +13,6 @@ thiserror = { workspace = true }
 serde = { workspace = true }
 chrono = { workspace = true, features = ["serde"] }
 mail-parser = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

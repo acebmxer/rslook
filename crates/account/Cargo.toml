@@ -1,0 +1,15 @@
+[package]
+name = "rslook-account"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Rslook mail account settings and OS keychain access"
+
+[lints]
+workspace = true
+
+[dependencies]
+thiserror = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+keyring = { workspace = true }

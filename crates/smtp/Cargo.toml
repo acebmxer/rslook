@@ -1,0 +1,20 @@
+[package]
+name = "rslook-smtp"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Rslook SMTP submission (RFC 5321 / RFC 6409) and outgoing message building"
+
+[lints]
+workspace = true
+
+[dependencies]
+rslook-account = { workspace = true }
+rslook-mail = { workspace = true }
+thiserror = { workspace = true }
+chrono = { workspace = true }
+lettre = { workspace = true }
+tokio = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread"] }

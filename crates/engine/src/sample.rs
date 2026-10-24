@@ -127,6 +127,7 @@ pub fn sample_store() -> Store {
                 flagged,
                 importance,
                 attachments,
+                remote: None,
             },
         );
     }

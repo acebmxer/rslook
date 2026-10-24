@@ -27,13 +27,38 @@ pub(crate) fn status_bar(app: &mut MailApp, ui: &mut Ui) {
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     let (text, color) = match &app.error {
                         Some(e) => (e.clone(), Color32::from_rgb(0xff, 0xe0, 0x8a)),
-                        None if !s.status.is_empty() => (s.status.clone(), Color32::WHITE),
-                        None => ("Working offline: local mailbox".to_string(), Color32::WHITE),
+                        None => sync_text(s),
                     };
                     ui.label(RichText::new(text).font(font).color(color));
                 });
             });
         });
+}
+
+/// The right side of the status bar: the connection state, or the last command's outcome.
+fn sync_text(s: &rslook_engine::Session) -> (String, Color32) {
+    use rslook_engine::sync::SyncState;
+    let warn = Color32::from_rgb(0xff, 0xe0, 0x8a);
+    let waiting = match s.queue().len() {
+        0 => String::new(),
+        n => format!("  ·  {n} change(s) waiting to sync"),
+    };
+    if s.account().is_none() {
+        let t = if s.status.is_empty() { "Local mailbox (no account)".to_string() } else { s.status.clone() };
+        return (t, Color32::WHITE);
+    }
+    if s.work_offline {
+        return (format!("Working Offline{waiting}"), Color32::WHITE);
+    }
+    match &s.sync_state {
+        SyncState::Busy { what, .. } => (what.clone(), Color32::WHITE),
+        SyncState::Error(e) => (format!("Send/Receive error: {e}{waiting}"), warn),
+        SyncState::Idle if !s.status.is_empty() => (format!("{}{waiting}", s.status), Color32::WHITE),
+        SyncState::Idle => match s.last_sync {
+            Some(t) => (format!("All folders are up to date ({}){waiting}", t.with_timezone(&Local).format("%-I:%M %p")), Color32::WHITE),
+            None => (format!("Connected{waiting}"), Color32::WHITE),
+        },
+    }
 }
 
 pub(crate) fn nav_bar(app: &mut MailApp, ui: &mut Ui) {

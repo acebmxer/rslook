@@ -11,6 +11,7 @@ workspace = true
 
 [dependencies]
 rslook-engine = { workspace = true }
+rslook-sync = { workspace = true }
 rslook-ui-egui = { workspace = true }
 eframe = { workspace = true, features = ["default_fonts", "wgpu", "accesskit", "wayland", "x11"] }
 egui = { workspace = true }

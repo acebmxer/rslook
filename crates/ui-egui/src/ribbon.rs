@@ -51,7 +51,8 @@ pub(crate) fn show(app: &mut MailApp, ui: &mut Ui) {
         }))
         .show(ui, |ui| {
             ui.horizontal(|ui| match app.tab {
-                RibbonTab::Home | RibbonTab::File => home(app, ui),
+                RibbonTab::Home => home(app, ui),
+                RibbonTab::File => file(app, ui),
                 RibbonTab::View => view(app, ui),
                 RibbonTab::SendReceive => send_receive(app, ui),
                 RibbonTab::Folder => folder(app, ui),
@@ -214,9 +215,30 @@ fn view(app: &mut MailApp, ui: &mut Ui) {
 
 fn send_receive(app: &mut MailApp, ui: &mut Ui) {
     group(ui, "Send & Receive", |ui| {
-        ui.label("Accounts and sync arrive with the IMAP/SMTP milestone.");
-        let _ = app;
+        big(app, ui, Icon::SendReceive, "Send/Receive All Folders", "sendrecv.all", json!({}));
+        column(ui, |ui| {
+            small(app, ui, Icon::SendReceive, "Update Folder", "sendrecv.update_folder", json!({}));
+            small(app, ui, Icon::Send, "Send All", "sendrecv.send_all", json!({}));
+        });
     });
+    group(ui, "Preferences", |ui| {
+        let label = if app.session.work_offline { "Working Offline" } else { "Work Offline" };
+        big(app, ui, Icon::Offline, label, "sendrecv.work_offline", json!({}));
+    });
+    if app.session.account().is_none() {
+        ui.label(egui::RichText::new("Add an account (File tab) to send and receive mail.").color(T.text_dim));
+    }
+}
+
+fn file(app: &mut MailApp, ui: &mut Ui) {
+    group(ui, "Account Information", |ui| {
+        big(app, ui, Icon::People, "Add Account", "account.add", json!({}));
+        big(app, ui, Icon::People, "Account Settings", "account.settings", json!({}));
+    });
+    if let Some(a) = app.session.account() {
+        let text = format!("{}  ·  IMAP {}:{}  ·  SMTP {}:{}", a.email, a.imap.host, a.imap.port, a.smtp.host, a.smtp.port);
+        ui.label(egui::RichText::new(text).color(T.text_dim));
+    }
 }
 
 fn folder(app: &mut MailApp, ui: &mut Ui) {

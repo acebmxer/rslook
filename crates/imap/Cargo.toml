@@ -1,0 +1,23 @@
+[package]
+name = "rslook-imap"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Rslook IMAP client (RFC 9051 / IMAP4rev1) over TLS, STARTTLS or plain TCP"
+
+[lints]
+workspace = true
+
+[dependencies]
+rslook-account = { workspace = true }
+rslook-mail = { workspace = true }
+thiserror = { workspace = true }
+log = { workspace = true }
+async-imap = { workspace = true }
+tokio = { workspace = true }
+tokio-rustls = { workspace = true }
+rustls-native-certs = { workspace = true }
+futures = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread"] }

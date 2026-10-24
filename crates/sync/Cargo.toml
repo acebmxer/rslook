@@ -1,0 +1,21 @@
+[package]
+name = "rslook-sync"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Rslook Send/Receive worker: runs engine sync jobs against IMAP and SMTP servers"
+
+[lints]
+workspace = true
+
+[dependencies]
+rslook-engine = { workspace = true }
+rslook-imap = { workspace = true }
+rslook-smtp = { workspace = true }
+log = { workspace = true }
+tokio = { workspace = true }
+futures = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+chrono = { workspace = true }

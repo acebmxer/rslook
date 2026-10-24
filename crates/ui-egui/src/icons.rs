@@ -22,6 +22,8 @@ pub enum Icon {
     Undo,
     Send,
     Discard,
+    SendReceive,
+    Offline,
 }
 
 fn p(r: Rect, x: f32, y: f32) -> Pos2 {
@@ -181,6 +183,34 @@ pub fn paint(painter: &Painter, rect: Rect, icon: Icon, color: Color32) {
         Icon::Discard => {
             painter.line_segment([p(r, 0.24, 0.24), p(r, 0.76, 0.76)], s);
             painter.line_segment([p(r, 0.76, 0.24), p(r, 0.24, 0.76)], s);
+        }
+        Icon::SendReceive => {
+            // Two curved arrows chasing each other round a circle.
+            for (start, tip) in [(0.15f32, 0.85f32), (1.15, 1.85)] {
+                let pts: Vec<Pos2> = (0..=12)
+                    .map(|i| {
+                        let a = std::f32::consts::PI * (start + (tip - start) * i as f32 / 12.0);
+                        p(r, 0.5 + 0.34 * a.cos(), 0.5 + 0.34 * a.sin())
+                    })
+                    .collect();
+                let a = std::f32::consts::PI * tip;
+                let end = p(r, 0.5 + 0.34 * a.cos(), 0.5 + 0.34 * a.sin());
+                let back = std::f32::consts::PI * (tip - 0.18);
+                let out = p(r, 0.5 + 0.48 * back.cos(), 0.5 + 0.48 * back.sin());
+                let inn = p(r, 0.5 + 0.2 * back.cos(), 0.5 + 0.2 * back.sin());
+                painter.add(egui::Shape::line(pts, s));
+                painter.line_segment([end, out], s);
+                painter.line_segment([end, inn], s);
+            }
+        }
+        Icon::Offline => {
+            // A plug pulled out of its socket.
+            painter.rect_stroke(Rect::from_min_max(p(r, 0.12, 0.36), p(r, 0.4, 0.64)), 2.0, s, StrokeKind::Middle);
+            painter.line_segment([p(r, 0.02, 0.5), p(r, 0.12, 0.5)], s);
+            painter.line_segment([p(r, 0.4, 0.43), p(r, 0.5, 0.43)], s);
+            painter.line_segment([p(r, 0.4, 0.57), p(r, 0.5, 0.57)], s);
+            painter.rect_stroke(Rect::from_min_max(p(r, 0.62, 0.32), p(r, 0.86, 0.68)), 2.0, s, StrokeKind::Middle);
+            painter.line_segment([p(r, 0.86, 0.5), p(r, 0.98, 0.5)], s);
         }
     }
 }

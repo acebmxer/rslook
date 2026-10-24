@@ -71,6 +71,19 @@ pub struct Folder {
     pub name: String,
     pub kind: FolderKind,
     pub parent: Option<FolderId>,
+    /// The server mailbox this folder mirrors (raw IMAP name), if any.
+    #[serde(default)]
+    pub remote: Option<String>,
+}
+
+/// Where a message lives on the server: mailbox, UIDVALIDITY and UID (RFC 9051 §2.3.1.1).
+/// A UID of 0 means "on the server, UID not known yet" (e.g. just appended); the next pull of
+/// that mailbox replaces the local copy with the server's.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct RemoteRef {
+    pub mailbox: String,
+    pub uid_validity: u32,
+    pub uid: u32,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -139,6 +152,9 @@ pub struct Message {
     pub flagged: bool,
     pub importance: Importance,
     pub attachments: Vec<Attachment>,
+    /// Set for messages synced from a server.
+    #[serde(default)]
+    pub remote: Option<RemoteRef>,
 }
 
 impl Message {
@@ -171,6 +187,7 @@ pub struct NewMessage {
     pub flagged: bool,
     pub importance: Importance,
     pub attachments: Vec<Attachment>,
+    pub remote: Option<RemoteRef>,
 }
 
 /// One mailbox: folders and messages, in memory.
@@ -202,8 +219,38 @@ impl Store {
 
     pub fn add_folder(&mut self, name: &str, kind: FolderKind, parent: Option<FolderId>) -> FolderId {
         let id = self.fresh_id();
-        self.folders.push(Folder { id, name: name.to_string(), kind, parent });
+        self.folders.push(Folder { id, name: name.to_string(), kind, parent, remote: None });
         id
+    }
+
+    pub fn folder_mut(&mut self, id: FolderId) -> Result<&mut Folder, MailError> {
+        self.folders.iter_mut().find(|f| f.id == id).ok_or(MailError::NoFolder(id))
+    }
+
+    /// The folder mirroring a server mailbox.
+    pub fn folder_by_remote(&self, mailbox: &str) -> Option<FolderId> {
+        self.folders.iter().find(|f| f.remote.as_deref() == Some(mailbox)).map(|f| f.id)
+    }
+
+    /// Removes a folder, its subfolders and every message in them.
+    pub fn remove_folder(&mut self, id: FolderId) -> Result<(), MailError> {
+        if self.folder(id).is_none() {
+            return Err(MailError::NoFolder(id));
+        }
+        let mut doomed = vec![id];
+        let mut i = 0;
+        while let Some(&f) = doomed.get(i) {
+            doomed.extend(self.folders.iter().filter(|c| c.parent == Some(f)).map(|c| c.id));
+            i += 1;
+        }
+        self.folders.retain(|f| !doomed.contains(&f.id));
+        self.messages.retain(|m| !doomed.contains(&m.folder));
+        Ok(())
+    }
+
+    /// Every message, in storage order.
+    pub fn messages(&self) -> &[Message] {
+        &self.messages
     }
 
     pub fn folders(&self) -> &[Folder] {
@@ -236,6 +283,7 @@ impl Store {
             flagged: m.flagged,
             importance: m.importance,
             attachments: m.attachments,
+            remote: m.remote,
         });
         Ok(id)
     }
@@ -345,5 +393,34 @@ mod tests {
         for s in ["<", ">", "><", "a<b", "é<ü>", ";;;", "<>", "\"<\">"] {
             let _ = Address::parse_list(s);
         }
+    }
+
+    #[test]
+    fn remove_folder_takes_subfolders_and_messages() {
+        let mut s = store();
+        let inbox = s.folder_of_kind(FolderKind::Inbox).unwrap();
+        let parent = s.add_folder("P", FolderKind::Custom, Some(inbox));
+        let child = s.add_folder("C", FolderKind::Custom, Some(parent));
+        let m = s.add_message(child, NewMessage::default()).unwrap();
+        s.remove_folder(parent).unwrap();
+        assert!(s.folder(child).is_none());
+        assert!(s.message(m).is_none());
+        assert!(s.folder(inbox).is_some());
+    }
+
+    #[test]
+    fn stores_saved_before_remote_fields_still_load() {
+        let mut s = store();
+        let inbox = s.folder_of_kind(FolderKind::Inbox).unwrap();
+        s.add_message(inbox, NewMessage { subject: "old".into(), ..Default::default() }).unwrap();
+        let mut v: serde_json::Value = serde_json::to_value(&s).unwrap();
+        for f in v["folders"].as_array_mut().unwrap() {
+            f.as_object_mut().unwrap().remove("remote");
+        }
+        for m in v["messages"].as_array_mut().unwrap() {
+            m.as_object_mut().unwrap().remove("remote");
+        }
+        let back: Store = serde_json::from_value(v).unwrap();
+        assert_eq!(back, s);
     }
 }

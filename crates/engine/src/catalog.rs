@@ -39,11 +39,11 @@ pub const FEATURES: &[Feature] = &[
     f("Home", "Find", "Filter Email", None),
     f("Home", "Find", "Search", Some("search.set")),
     // Send / Receive
-    f("Send / Receive", "Send & Receive", "Send/Receive All Folders", None),
-    f("Send / Receive", "Send & Receive", "Update Folder", None),
-    f("Send / Receive", "Send & Receive", "Send All", None),
+    f("Send / Receive", "Send & Receive", "Send/Receive All Folders", Some("sendrecv.all")),
+    f("Send / Receive", "Send & Receive", "Update Folder", Some("sendrecv.update_folder")),
+    f("Send / Receive", "Send & Receive", "Send All", Some("sendrecv.send_all")),
     f("Send / Receive", "Server", "Download Headers", None),
-    f("Send / Receive", "Preferences", "Work Offline", None),
+    f("Send / Receive", "Preferences", "Work Offline", Some("sendrecv.work_offline")),
     // Folder
     f("Folder", "New", "New Folder", None),
     f("Folder", "Actions", "Rename Folder", None),
@@ -63,7 +63,8 @@ pub const FEATURES: &[Feature] = &[
     f("View", "Layout", "To-Do Bar", None),
     f("View", "Window", "Reminders Window", None),
     // File (Backstage)
-    f("File", "Info", "Add Account", None),
+    f("File", "Info", "Add Account", Some("account.add")),
+    f("File", "Info", "Account Settings", Some("account.settings")),
     f("File", "Open & Export", "Import/Export", Some("mail.import_eml")),
     f("File", "Open & Export", "Open Outlook Data File", None),
     f("File", "Print", "Print", None),

@@ -3,15 +3,27 @@
 //! `cargo run -p rslook-ui-egui --example ui_shot -- /abs/out.png [command[=json] ...]`
 //!
 //! Each extra argument runs a command first, e.g. `mail.reply` or
-//! `view.reading_pane={"position":"bottom"}`.
+//! `view.reading_pane={"position":"bottom"}`. `tab:<file|send_receive|folder|view|help>`
+//! picks the ribbon tab.
 
-use rslook_ui_egui::MailApp;
+use rslook_ui_egui::{MailApp, RibbonTab};
 
 fn main() {
     let mut args = std::env::args().skip(1);
     let out = args.next().unwrap_or_else(|| "/tmp/rslook.png".into());
     let mut app = MailApp::new(rslook_engine::sample::sample_session());
     for a in args {
+        if let Some(tab) = a.strip_prefix("tab:") {
+            app.tab = match tab {
+                "file" => RibbonTab::File,
+                "send_receive" => RibbonTab::SendReceive,
+                "folder" => RibbonTab::Folder,
+                "view" => RibbonTab::View,
+                "help" => RibbonTab::Help,
+                _ => RibbonTab::Home,
+            };
+            continue;
+        }
         let (id, params) = match a.split_once('=') {
             Some((id, p)) => (id.to_string(), serde_json::from_str(p).expect("json params")),
             None => (a.clone(), serde_json::json!({})),

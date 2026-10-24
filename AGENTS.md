@@ -38,11 +38,14 @@ in `ATTRIBUTION.md`.
 | Layer | Crate | Job |
 |---|---|---|
 | L1 | `mail` | Mail model (accounts, folders, messages, addresses), RFC 5322 parsing, store |
-| L4 | `engine` | `Session`, undo, **command registry**, Outlook feature catalog, sample data |
+| L2 | `account` | Account settings (IMAP/SMTP servers), accounts file, OS keychain (`SecretStore`) |
+| L3 | `imap`, `smtp` | IMAP client (async-imap, rustls) and SMTP submission (lettre) |
+| L4 | `engine` | `Session`, undo, **command registry**, Outlook feature catalog, sample data, offline change queue and sync jobs (`sync.rs`, no network code) |
+| L5 | `sync` | Send/Receive worker: runs engine jobs against IMAP/SMTP on a background thread |
 | L6 | `ui-egui` | Outlook-classic-style egui front end (ribbon, folder pane, list, reading pane) |
 | apps | `apps/rslook` | Desktop binary (eframe + wgpu) |
 
-Planned: `pst` (read-only [MS-PST] import), `msg` ([MS-OXMSG]), `imap`/`smtp` sync, `ical`, `vcard`.
+Planned: `pst` (read-only [MS-PST] import), `msg` ([MS-OXMSG]), `ical`, `vcard`.
 
 - **Everything is a command.** User-visible behaviour is a `CommandSpec` in
   `crates/engine/src/cmd/*.rs`. The ribbon, shortcuts and (later) CLI/MCP dispatch by id.
@@ -52,4 +55,5 @@ Planned: `pst` (read-only [MS-PST] import), `msg` ([MS-OXMSG]), `imap`/`smtp` sy
 
 ## Quality gates
 `cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo test` before every commit.
+Send/Receive changes: also `scripts/mail-test.sh` (throwaway GreenMail, Dovecot and Mailpit servers, synthetic mail).
 Headless screenshot: `cargo run -p rslook-ui-egui --example ui_shot -- /abs/out.png`.

@@ -14,6 +14,10 @@ rust-version = "1.95"
 rslook-mail = { path = "crates/mail" }
 rslook-engine = { path = "crates/engine" }
 rslook-ui-egui = { path = "crates/ui-egui" }
+rslook-account = { path = "crates/account" }
+rslook-imap = { path = "crates/imap" }
+rslook-smtp = { path = "crates/smtp" }
+rslook-sync = { path = "crates/sync" }
 
 # foundation
 thiserror = "2"
@@ -24,6 +28,16 @@ chrono = { version = "0.4.45", default-features = false, features = ["std", "clo
 
 # mail formats: RFC 5322 / MIME parsing (Apache-2.0 OR MIT)
 mail-parser = "0.11"
+
+# accounts and sync (all MIT and/or Apache-2.0)
+# OS keychain: Secret Service (zbus, pure Rust) on Linux, Credential Manager on Windows.
+keyring = "4.2"
+async-imap = { version = "0.12", default-features = false, features = ["runtime-tokio"] }
+lettre = { version = "0.11.23", default-features = false, features = ["builder", "smtp-transport", "tokio1", "tokio1-rustls", "rustls-native-certs", "ring", "hostname"] }
+tokio = { version = "1", features = ["rt", "net", "time", "io-util", "macros", "sync"] }
+tokio-rustls = { version = "0.26", default-features = false, features = ["ring", "tls12", "logging"] }
+rustls-native-certs = "0.8"
+futures = "0.3"
 
 # ui
 egui = "0.36"

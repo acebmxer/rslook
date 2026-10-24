@@ -1,8 +1,10 @@
 //! The command registry. Every user-visible action is a [`CommandSpec`]; front ends dispatch by id.
 
+mod account;
 mod compose;
 mod edit;
 mod mail;
+mod sendrecv;
 mod view;
 
 use crate::{EngineError, Session};
@@ -52,6 +54,8 @@ pub fn commands() -> Vec<CommandSpec> {
     v.extend_from_slice(compose::COMMANDS);
     v.extend_from_slice(view::COMMANDS);
     v.extend_from_slice(edit::COMMANDS);
+    v.extend_from_slice(sendrecv::COMMANDS);
+    v.extend_from_slice(account::COMMANDS);
     v
 }
 
